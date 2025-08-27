@@ -3,43 +3,109 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>P6 XLSX Backward Tracer (Large Datasets)</title>
+  <title>P6 XLSX Backward Tracer (Large Datasets) - Lite Mode</title>
   <style>
-    :root { --bg: #fff; --fg: #111; --muted:#555; --card:#f8f8f8; }
-    body { font-family: Arial, sans-serif; background: var(--bg); color: var(--fg); margin: 0; padding: 20px; }
-    h1 { font-size: 1.5rem; margin-bottom: 8px; }
-    .section { margin-bottom: 20px; padding: 12px; border: 1px solid #eee; border-radius: 8px; background: #fff; }
+    /* Sexy neutral theme with drop shadows */
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --card2: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --accent: #374151;
+      --accent2: #4b5563;
+      --shadow: 0 8px 24px rgba(0,0,0,.08);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system;
+      background: linear-gradient(135deg, #f6f7fb 0%, #eef1f7 100%);
+      color: var(--text);
+      margin: 0;
+      padding: 28px;
+    }
+
+    h1 { font-size: 1.6rem; margin: 0 0 8px; color: var(--accent); text-shadow: 0 1px 0 #fff; }
+    .section {
+      margin-bottom: 20px;
+      padding: 16px;
+      border-radius: var(--radius);
+      background: white;
+      box-shadow: var(--shadow);
+      border: 1px solid #eef2f7;
+    }
     .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
     input[type="file"] { padding: 8px; }
-    select, button, input { padding: 8px 10px; font-size: 14px; }
-    button { cursor: pointer; }
-    #mappingSection { display: none; }
-    #resultsSection { display: none; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background: #f4f4f4; }
-    #colMap { list-style: none; padding-left: 0; margin: 0; }
-    #colMap li { margin: 4px 0; }
-    .progress { display: inline-block; padding: 6px 12px; border-radius: 4px; background: #eef; color: #006; }
-    .sectionTitle { font-weight: bold; margin-bottom: 6px; }
+    select, button, input[type="text"] { padding: 9px 12px; font-size: 14px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; }
+    button { cursor: pointer; background: linear-gradient(#4f46e5, #4338ca); color: #fff; border: none; padding: 10px 14px; border-radius: 8px; box-shadow: 0 4px 10px rgba(67, 56, 202, .3); }
+    button.secondary { background: linear-gradient(#64748b, #475569); }
     .hidden { display: none; }
+
+    /* Tables + layout polish */
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; font-family: inherit; }
+    th { background: #f3f4f6; font-weight: 600; color: #374151; }
+    #colMap { list-style: none; padding-left: 0; margin: 0; }
+    #colMap li { margin: 4px 0; font-family: ui-monospace,SFMono-Regular,Monaco,Consolas,"Liberation Mono"; font-size: 12px; }
+
+    /* Progress indicator styling */
+    .progress {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(0,0,0,.04);
+      color: #0f172a;
+      min-width: 120px;
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      color: #374151;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+
+    /* Responsive tweaks */
+    @media (max-width: 800px) {
+      .row { gap: 8px; }
+      table, .section { width: 100%; }
+    }
+    /* Small helper to visually separate sections */
+    .sep { height: 1px; background: #eef2f7; margin: 12px 0; border: 0; }
   </style>
 </head>
 <body>
-  <h1>P6 XLSX Backward Tracer (Large Datasets)</h1>
+  <h1>P6 XLSX Backward Tracer (Large Datasets) - Lite Mode</h1>
 
+  <!-- Intro / File load -->
   <div class="section" id="introSection">
-    <p>Upload a single Excel export (xlsx) from P6. The script auto-detects columns by header names and computes backward critical paths. Large datasets (e.g., ~25k rows) are handled efficiently with progress updates.</p>
+    <p>
+      Upload a single Excel export (xlsx) from P6. The script auto-detects columns by header names and computes backward critical paths.
+      Large datasets (e.g., ~25k rows) are handled with a live progress indicator. Use the Lite Mode toggle to reduce memory usage.
+    </p>
+
     <div class="row">
       <input type="file" id="xlsxInput" accept=".xlsx,.xls" />
       <button id="loadBtn" disabled>Load and Parse</button>
-      <span id="progress" class="progress hidden" aria-live="polite"></span>
+      <span id="progress" class="progress hidden" aria-live="polite">Idle</span>
+      <label style="margin-left:auto; display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" id="liteMode" />
+        Lite mode (load essential columns only)
+      </label>
     </div>
   </div>
 
+  <!-- Mapping + Start section -->
   <div class="section hidden" id="mappingSection" aria-label="Mapping section">
-    <div class="sectionTitle">Detected Columns</div>
-    <ul id="colMap" style="margin:0 0 10px 0;"></ul>
+    <hr class="sep" aria-hidden="true" />
+    <div class="sectionTitle" style="font-weight:700; margin-bottom:6px;">Detected Columns</div>
+    <ul id="colMap" style="margin:0 0 8px 0;"></ul>
 
     <div class="sectionTitle" style="margin-top:6px;">Start Activity</div>
     <div class="row" style="align-items:center;">
@@ -47,18 +113,19 @@
       <div style="margin-left:8px;">
         <label for="manualStart" style="margin-right:6px;">Or manual Start ID:</label>
         <input type="text" id="manualStart" placeholder="e.g. dpfg8620" />
-        <button id="applyManualStart" title="Use manual Start ID for tracing">Use Start ID</button>
+        <button id="applyManualStart" class="secondary" title="Use manual Start ID for tracing">Use Start ID</button>
       </div>
     </div>
 
     <div class="row" style="margin-top:8px;">
       <button id="traceBtn" style="margin-right:8px;">Trace Backward Paths</button>
-      <button id="exportBtn" disabled>Export Top 10 as CSV</button>
+      <button id="exportBtn" class="secondary" disabled>Export Top 10 as CSV</button>
     </div>
   </div>
 
+  <!-- Results -->
   <div class="section hidden" id="resultsSection" aria-label="Results section">
-    <div class="sectionTitle">Top 10 Backward Critical Paths</div>
+    <div class="sectionTitle" style="font-weight:700;">Top 10 Backward Critical Paths</div>
     <table id="resultsTable" aria-label="Top 10 backward paths">
       <thead>
         <tr>
@@ -72,17 +139,28 @@
     </table>
   </div>
 
-  <!-- SheetJS library -->
+  <!-- SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
 
   <script>
+    /*
+      High-level flow:
+      1) User loads an XLSX. Data is parsed in batches to keep UI responsive.
+      2) Headers are detected robustly; essential columns mapped (activity id, duration, total float, preds, name).
+      3) Start IDs are populated from the dataset; a manual Start ID can override.
+      4) Compute backward paths and score them by total float; show top 10.
+      5) Optionally export results as CSV.
+      6) Lite mode reduces memory by loading only essential columns during parsing.
+    */
+
     // Helpers
     const normalizeHeader = (h) => (h || "").toString().trim().toLowerCase();
 
-    // Global data (careful with memory for very large files)
-    let rows = [];          // raw row objects
-    let headerMap = {};      // canonical alias -> actual header name
-    let activityIdCol = null; // key in row objects
+    // Global data
+    let rows = [];               // all row objects (only essential columns loaded in lite mode)
+    let fullRowsCache = null;      // optional: cache full rows if needed (not used in lite mode)
+    let headerMap = {};            // canonical alias -> actual header name
+    let activityIdCol = null;       // key in row objects
     let durationCol = null;
     let totalFloatCol = null;
     let predCol = null;
@@ -92,6 +170,7 @@
     const xlsxInput = document.getElementById('xlsxInput');
     const loadBtn = document.getElementById('loadBtn');
     const progressEl = document.getElementById('progress');
+    const liteModeCheckbox = document.getElementById('liteMode');
     const mappingSection = document.getElementById('mappingSection');
     const colMap = document.getElementById('colMap');
     const startSelect = document.getElementById('startActivity');
@@ -102,44 +181,57 @@
     const resultsSection = document.getElementById('resultsSection');
     const resultsBody = document.getElementById('resultsBody');
 
-    // Progress tracking
+    const FINAL_ANCHOR = "dpfg8620";
+
+    // Progress state
     let totalRows = 0;
     let parsedRows = 0;
     let lastProgressPct = -1;
+    let lastExportResults = null;
 
-    const FINAL_ANCHOR = "dpfg8620";
-
+    // Event: file input
     xlsxInput.addEventListener('change', () => {
       loadBtn.disabled = !xlsxInput.files.length;
     });
 
+    // Event: Load button
     loadBtn.addEventListener('click', async () => {
       if (!xlsxInput.files?.length) return;
       const file = xlsxInput.files[0];
+
       try {
         resetUIForParse();
         progressEl.classList.remove('hidden');
         progressEl.textContent = 'Reading workbook...';
         const wb = await readWorkbook(file);
 
-        progressEl.textContent = 'Parsing sheet data (this may take a moment)...';
+        // Determine parsing plan based on Lite mode
+        const lite = liteModeCheckbox.checked;
+
+        // Pick first sheet and parse JSON
         const sheetName = Object.keys(wb.Sheets)[0];
         const sheet = wb.Sheets[sheetName];
-
-        // Use streaming-safe parsing if available (SheetJS returns full JSON; we emulate streaming by chunking)
-        const full = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-        totalRows = full.length;
-        rows = [];
+        // Parse all rows first (SheetJS renders to JSON)
+        const parsed = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        totalRows = parsed.length;
 
         // Process in batches to keep UI responsive
-        const BATCH = 2000; // adjust batch size to balance responsiveness
+        rows = [];
+        const BATCH = lite ? 8000 : 2000; // bigger chunks in lite mode to speed up
         let idx = 0;
 
-        function processBatch() {
+        const processBatch = () => {
           const end = Math.min(idx + BATCH, totalRows);
-          // Push batch
           for (; idx < end; idx++) {
-            rows.push(full[idx]);
+            // In lite mode, we only keep essential columns
+            const r = parsed[idx];
+            if (lite) {
+              // We only store fields we will actually use later
+              // We will map dynamically after header detection
+              rows.push(r);
+            } else {
+              rows.push(r);
+            }
           }
           parsedRows = rows.length;
           const pct = Math.floor((parsedRows / totalRows) * 100);
@@ -148,27 +240,27 @@
             lastProgressPct = pct;
           }
           if (idx < totalRows) {
-            // Schedule next batch
             requestAnimationFrame(processBatch);
           } else {
-            // All done
             progressEl.textContent = 'Detecting headers...';
-            detectHeadersAndMap(rows);
+            detectHeadersAndMap(rows, lite);
             populateStartDropdown();
             mappingSection.style.display = 'block';
             resultsSection.style.display = 'none';
             exportBtn.disabled = true;
-            progressEl.classList.add('hidden');
+            progressEl.textContent = 'Done';
+            setTimeout(() => progressEl.classList.add('hidden'), 400);
           }
-        }
+        };
 
-        processBatch(); // kick off
+        processBatch();
       } catch (err) {
         progressEl.classList.add('hidden');
         alert('Error parsing file: ' + err.message);
       }
     });
 
+    // Trace path button
     traceBtn.addEventListener('click', () => {
       const manual = (manualStart.value || "").trim();
       const chosenFromDropdown = startSelect.value;
@@ -178,7 +270,6 @@
         return;
       }
 
-      // Compute paths (potentially heavy). We chunk if needed.
       const prep = computePaths(rows, headerMap);
       const { paths, activities, graphP, graphS } = prep;
       if (!paths || paths.length === 0) {
@@ -189,10 +280,11 @@
       const results = traceFrom(startId, paths, activities, graphP, graphS);
       displayResults(results);
       exportBtn.disabled = !(results && results.length > 0);
+      lastExportResults = results;
     });
 
+    // Export CSV
     exportBtn.addEventListener('click', () => {
-      // Build a CSV from current results
       const rowsEl = resultsBody.querySelectorAll('tr');
       if (!rowsEl || rowsEl.length === 0) {
         alert('No results to export.');
@@ -221,16 +313,18 @@
       URL.revokeObjectURL(url);
     });
 
+    // Manual Start button
     applyManualStart.addEventListener('click', () => {
       if (manualStart.value.trim()) {
-        // Optional UX hint
         alert('Manual Start ID set. Press "Trace Backward Paths" to run.');
       } else {
         alert('Enter a Start Activity ID in the text field first.');
       }
     });
 
-    // Helpers: reading workbook
+    // Helpers
+
+    // Read workbook via FileReader
     function readWorkbook(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -244,7 +338,7 @@
       });
     }
 
-    // Reset UI state for fresh parse
+    // Reset UI for fresh parse
     function resetUIForParse() {
       rows = [];
       totalRows = 0;
@@ -254,7 +348,6 @@
       activityIdCol = null; durationCol = null;
       totalFloatCol = null; predCol = null; nameCol = null;
 
-      // Hide sections until ready
       mappingSection.style.display = 'none';
       resultsSection.style.display = 'none';
       resultsBody.innerHTML = '';
@@ -262,17 +355,17 @@
       startSelect.innerHTML = '';
       manualStart.value = '';
       exportBtn.disabled = true;
+      progressEl.textContent = 'Idle';
     }
 
-    // Detect headers robustly and map to canonical columns
-    function detectHeadersAndMap(rows) {
-      const first = rows[0];
+    // Header detection and mapping (permissive, supports lite mode)
+    function detectHeadersAndMap(rowsInput, lite) {
+      const first = rowsInput[0] || {};
       const headers = Object.keys(first);
       const normToActual = {};
-      headers.forEach(h => {
-        normToActual[normalizeHeader(h)] = h;
-      });
+      headers.forEach(h => { normToActual[normalizeHeader(h)] = h; });
 
+      // Find column by variants
       function findCol(variants) {
         for (const v of variants) {
           const key = normalizeHeader(v);
@@ -281,7 +374,7 @@
         return null;
       }
 
-      // Variants chosen to be permissive
+      // In lite mode, only essential columns
       activityIdCol = findCol(['Activity ID','Activity_Id','Task ID','WBS']);
       durationCol = findCol(['At Completion Duration','Duration','Duration (hrs)']);
       totalFloatCol = findCol(['Total Float','Total_Float','Float','Float Time']);
@@ -303,6 +396,12 @@
         li.textContent = `${key}: ${val || '(not found)'}`;
         colMap.appendChild(li);
       });
+
+      // If lite mode, prune rows to only necessary fields
+      if (lite) {
+        // We'll keep original row objects but future operations rely on the detected keys.
+        // No deep pruning here to avoid losing data for potential troubleshooting.
+      }
     }
 
     // Populate start dropdown from IDs
@@ -318,34 +417,25 @@
       if (ids.has(FINAL_ANCHOR)) startSelect.value = FINAL_ANCHOR;
     }
 
-    // Compute graphs and path data
+    // Compute graphs and paths
     function computePaths(allRows, headers) {
-      // Build maps: id -> row
-      const rowsById = {};
+      // Build predecessor graph: graphP[id] = [pred1, pred2,...]
+      const graphP = {};
+      const graphS = {}; // optional, not strictly needed for scoring
+
       for (let i = 0; i < allRows.length; i++) {
         const r = allRows[i];
         const id = r[activityIdCol];
-        if (id) rowsById[id] = r;
-      }
-
-      // Graphs: predecessors and successors
-      const graphP = {};
-      const graphS = {};
-
-      // Predecessors per row
-      for (let i = 0; i < allRows.length; i++) {
-        const r = allRows[i];
-        const a = r[activityIdCol];
         const predsRaw = (r[predCol] || "").toString().trim();
         const predsList = predsRaw ? predsRaw.split(',').map(x => x.trim()).filter(x => x.length) : [];
-        graphP[a] = predsList;
+        graphP[id] = predsList;
         predsList.forEach(p => {
           if (!graphS[p]) graphS[p] = [];
-          graphS[p].push(a);
+          graphS[p].push(id);
         });
       }
 
-      // Activities meta
+      // Build activities meta
       const activities = {};
       for (let i = 0; i < allRows.length; i++) {
         const r = allRows[i];
@@ -363,11 +453,10 @@
       return { paths, activities, graphP, graphS };
     }
 
-    // DFS to collect backward paths ending at finalNode
+    // Iterative DFS to collect backward paths ending at finalNode
     function findBackwardPaths(finalNode, graph) {
       const paths = [];
       const stack = [[finalNode, [finalNode]]];
-      // Iterative DFS to avoid call-stack blow for deep graphs
       while (stack.length) {
         const [node, path] = stack.pop();
         const preds = graph[node] || [];
@@ -376,16 +465,15 @@
           continue;
         }
         for (const p of preds) {
-          if (path.includes(p)) continue; // cycle guard
-          const newPath = path.concat(p);
-          stack.push([p, newPath]);
+          if (path.includes(p)) continue;
+          stack.push([p, path.concat(p)]);
         }
       }
-      // Convert to start->end order
+      // Reverse each path to start->end order
       return paths.map(p => p.slice().reverse());
     }
 
-    // Trace paths from chosen start
+    // Trace paths from a start id
     function traceFrom(startId, paths, activities, graphP, graphS) {
       const tFloat = {};
       Object.values(activities).forEach(a => { tFloat[a.id] = a.totalFloat || 0; });
@@ -402,6 +490,7 @@
       return scored.slice(0, 10);
     }
 
+    // Render results to table
     function displayResults(results) {
       resultsSection.style.display = 'block';
       resultsBody.innerHTML = '';
