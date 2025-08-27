@@ -16,6 +16,9 @@
       --accent2: #4b5563;
       --shadow: 0 8px 24px rgba(0,0,0,.08);
       --radius: 14px;
+      --green: #10b981;
+      --red: #ef4444;
+      --blue: #3b82f6;
     }
 
     * { box-sizing: border-box; }
@@ -58,7 +61,7 @@
       border-radius: 999px;
       background: rgba(0,0,0,.04);
       color: #0f172a;
-      min-width: 120px;
+      min-width: 140px;
       text-align: center;
     }
     .badge {
@@ -70,6 +73,25 @@
       font-size: 12px;
       margin-left: 8px;
     }
+
+    /* Toast / modal */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.4);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 999;
+    }
+    .modal {
+      background: white; padding: 20px; border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0,0,0,.25);
+      width: min(520px, 92vw);
+      text-align: center;
+    }
+    .modal h2 { margin-top: 0; color: #374151; }
+    .modal p { color: #374151; }
+    .modal .buttons { margin-top: 14px; display:flex; justify-content:center; gap: 8px; }
+    .modal .ok { background: var(--green); }
+    .modal .close { background: #64748b; }
 
     /* Responsive tweaks */
     @media (max-width: 800px) {
@@ -115,6 +137,7 @@
         <input type="text" id="manualStart" placeholder="e.g. dpfg8620" />
         <button id="applyManualStart" class="secondary" title="Use manual Start ID for tracing">Use Start ID</button>
       </div>
+      <span class="badge" id="elapsedBadge" aria-live="polite" title="Elapsed time since parsing started">Elapsed: 0s</span>
     </div>
 
     <div class="row" style="margin-top:8px;">
@@ -151,14 +174,15 @@
       4) Compute backward paths and score them by total float; show top 10.
       5) Optionally export results as CSV.
       6) Lite mode reduces memory by loading only essential columns during parsing.
+      7) Time elapsed timer tracks total processing duration.
+      8) Popup notifies user when analysis is complete.
     */
 
     // Helpers
     const normalizeHeader = (h) => (h || "").toString().trim().toLowerCase();
 
     // Global data
-    let rows = [];               // all row objects (only essential columns loaded in lite mode)
-    let fullRowsCache = null;      // optional: cache full rows if needed (not used in lite mode)
+    let rows = [];               // all row objects
     let headerMap = {};            // canonical alias -> actual header name
     let activityIdCol = null;       // key in row objects
     let durationCol = null;
@@ -180,8 +204,14 @@
     const exportBtn = document.getElementById('exportBtn');
     const resultsSection = document.getElementById('resultsSection');
     const resultsBody = document.getElementById('resultsBody');
+    const elapsedBadge = document.getElementById('elapsedBadge');
+    const liteMode = document.getElementById('liteMode');
 
     const FINAL_ANCHOR = "dpfg8620";
+
+    // Timer state
+    let timerStart = null;
+    let timerInterval = null;
 
     // Progress state
     let totalRows = 0;
@@ -194,6 +224,32 @@
       loadBtn.disabled = !xlsxInput.files.length;
     });
 
+    // Start the elapsed timer
+    function startTimer() {
+      timerStart = performance.now();
+      elapsedBadge.textContent = "Elapsed: 0s";
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        const ms = performance.now() - timerStart;
+        const secs = Math.floor(ms / 1000);
+        elapsedBadge.textContent = `Elapsed: ${secs}s`;
+      }, 1000);
+    }
+
+    // Stop the elapsed timer
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+      // Final update
+      if (timerStart != null) {
+        const ms = performance.now() - timerStart;
+        const secs = Math.floor(ms / 1000);
+        elapsedBadge.textContent = `Elapsed: ${secs}s (done)`;
+      }
+    }
+
     // Event: Load button
     loadBtn.addEventListener('click', async () => {
       if (!xlsxInput.files?.length) return;
@@ -203,35 +259,27 @@
         resetUIForParse();
         progressEl.classList.remove('hidden');
         progressEl.textContent = 'Reading workbook...';
+        startTimer(); // begin timing the entire parse/trace operation
+
+        const lite = liteMode.checked;
         const wb = await readWorkbook(file);
 
-        // Determine parsing plan based on Lite mode
-        const lite = liteModeCheckbox.checked;
-
-        // Pick first sheet and parse JSON
+        // Initialize parsing
         const sheetName = Object.keys(wb.Sheets)[0];
         const sheet = wb.Sheets[sheetName];
-        // Parse all rows first (SheetJS renders to JSON)
         const parsed = XLSX.utils.sheet_to_json(sheet, { defval: "" });
         totalRows = parsed.length;
-
-        // Process in batches to keep UI responsive
         rows = [];
-        const BATCH = lite ? 8000 : 2000; // bigger chunks in lite mode to speed up
+
+        // Batch processing to keep UI responsive
+        const BATCH = lite ? 8000 : 2000;
         let idx = 0;
 
         const processBatch = () => {
           const end = Math.min(idx + BATCH, totalRows);
           for (; idx < end; idx++) {
-            // In lite mode, we only keep essential columns
             const r = parsed[idx];
-            if (lite) {
-              // We only store fields we will actually use later
-              // We will map dynamically after header detection
-              rows.push(r);
-            } else {
-              rows.push(r);
-            }
+            rows.push(r);
           }
           parsedRows = rows.length;
           const pct = Math.floor((parsedRows / totalRows) * 100);
@@ -242,14 +290,17 @@
           if (idx < totalRows) {
             requestAnimationFrame(processBatch);
           } else {
+            // All rows parsed
             progressEl.textContent = 'Detecting headers...';
             detectHeadersAndMap(rows, lite);
             populateStartDropdown();
             mappingSection.style.display = 'block';
             resultsSection.style.display = 'none';
             exportBtn.disabled = true;
-            progressEl.textContent = 'Done';
-            setTimeout(() => progressEl.classList.add('hidden'), 400);
+            progressEl.classList.add('hidden');
+            stopTimer(); // stop timing after parse phase
+            // Start a separate timer for the full analysis duration if needed
+            // Then show the completion popup after trace is run (handled in trace path)
           }
         };
 
@@ -270,6 +321,7 @@
         return;
       }
 
+      // Re-run path computation (could be cached; for simplicity recompute)
       const prep = computePaths(rows, headerMap);
       const { paths, activities, graphP, graphS } = prep;
       if (!paths || paths.length === 0) {
@@ -277,10 +329,16 @@
         return;
       }
 
+      // Run trace and display
       const results = traceFrom(startId, paths, activities, graphP, graphS);
       displayResults(results);
       exportBtn.disabled = !(results && results.length > 0);
       lastExportResults = results;
+
+      // Notify user that analysis is ready (popup)
+      if (results && results.length > 0) {
+        showCompletionPopup();
+      }
     });
 
     // Export CSV
@@ -365,7 +423,6 @@
       const normToActual = {};
       headers.forEach(h => { normToActual[normalizeHeader(h)] = h; });
 
-      // Find column by variants
       function findCol(variants) {
         for (const v of variants) {
           const key = normalizeHeader(v);
@@ -374,7 +431,6 @@
         return null;
       }
 
-      // In lite mode, only essential columns
       activityIdCol = findCol(['Activity ID','Activity_Id','Task ID','WBS']);
       durationCol = findCol(['At Completion Duration','Duration','Duration (hrs)']);
       totalFloatCol = findCol(['Total Float','Total_Float','Float','Float Time']);
@@ -396,12 +452,6 @@
         li.textContent = `${key}: ${val || '(not found)'}`;
         colMap.appendChild(li);
       });
-
-      // If lite mode, prune rows to only necessary fields
-      if (lite) {
-        // We'll keep original row objects but future operations rely on the detected keys.
-        // No deep pruning here to avoid losing data for potential troubleshooting.
-      }
     }
 
     // Populate start dropdown from IDs
@@ -419,9 +469,8 @@
 
     // Compute graphs and paths
     function computePaths(allRows, headers) {
-      // Build predecessor graph: graphP[id] = [pred1, pred2,...]
       const graphP = {};
-      const graphS = {}; // optional, not strictly needed for scoring
+      const graphS = {};
 
       for (let i = 0; i < allRows.length; i++) {
         const r = allRows[i];
@@ -435,7 +484,7 @@
         });
       }
 
-      // Build activities meta
+      // Activities meta
       const activities = {};
       for (let i = 0; i < allRows.length; i++) {
         const r = allRows[i];
@@ -504,6 +553,80 @@
         `;
         resultsBody.appendChild(tr);
       });
+      // After rendering results, show completion popup
+      showCompletionPopup();
+    }
+
+    // Popup: show completion notice
+    function showCompletionPopup() {
+      // Create modal overlay if not present
+      if (document.getElementById('completionOverlay')) return;
+      const overlay = document.createElement('div');
+      overlay.id = 'completionOverlay';
+      overlay.className = 'overlay';
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.innerHTML = `
+        <h2>Analysis Complete</h2>
+        <p>The backward critical path analysis is ready for review. You can review the results below or export them as CSV.</p>
+      `;
+      const btns = document.createElement('div');
+      btns.className = 'buttons';
+      const ok = document.createElement('button');
+      ok.className = 'ok';
+      ok.textContent = 'Got it';
+      ok.addEventListener('click', () => {
+        document.body.removeChild(overlay);
+      });
+      const review = document.createElement('button');
+      review.textContent = 'Review in-page';
+      review.addEventListener('click', () => {
+        document.body.removeChild(overlay);
+        // Focus results section
+        if (resultsSection && resultsSection.style.display !== 'block') {
+          resultsSection.style.display = 'block';
+        }
+        const firstRow = resultsBody.querySelector('tr');
+        if (firstRow) firstRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      btns.appendChild(review);
+      btns.appendChild(ok);
+      modal.appendChild(btns);
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+    }
+
+    // Event: Manual Start button
+    applyManualStart.addEventListener('click', () => {
+      if (manualStart.value.trim()) {
+        alert('Manual Start ID set. Press "Trace Backward Paths" to run.');
+      } else {
+        alert('Enter a Start Activity ID in the text field first.');
+      }
+    });
+
+    // Helpers
+
+    // Reset UI for fresh parse
+    function resetUIForParse() {
+      rows = [];
+      totalRows = 0;
+      parsedRows = 0;
+      lastProgressPct = -1;
+      headerMap = {};
+      activityIdCol = null; durationCol = null;
+      totalFloatCol = null; predCol = null; nameCol = null;
+
+      mappingSection.style.display = 'none';
+      resultsSection.style.display = 'none';
+      resultsBody.innerHTML = '';
+      colMap.innerHTML = '';
+      startSelect.innerHTML = '';
+      manualStart.value = '';
+      exportBtn.disabled = true;
+      progressEl.textContent = 'Idle';
+      // Reset timer display
+      elapsedBadge.textContent = 'Elapsed: 0s';
     }
   </script>
 </body>
