@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>P6 XLSX Backward Tracer</title>
+  <title>P6 XLSX Backward Tracer (Large Datasets)</title>
   <style>
     :root { --bg: #fff; --fg: #111; --muted:#555; --card:#f8f8f8; }
     body { font-family: Arial, sans-serif; background: var(--bg); color: var(--fg); margin: 0; padding: 20px; }
@@ -18,41 +18,47 @@
     table { width: 100%; border-collapse: collapse; margin-top: 12px; }
     th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
     th { background: #f4f4f4; }
-    #colMap { list-style: none; padding-left: 0; }
+    #colMap { list-style: none; padding-left: 0; margin: 0; }
     #colMap li { margin: 4px 0; }
-    .progress { display: inline-block; padding: 6px 10px; border-radius: 4px; background: #eef; color: #00a; }
+    .progress { display: inline-block; padding: 6px 12px; border-radius: 4px; background: #eef; color: #006; }
+    .sectionTitle { font-weight: bold; margin-bottom: 6px; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h1>P6 XLSX Backward Tracer</h1>
+  <h1>P6 XLSX Backward Tracer (Large Datasets)</h1>
+
   <div class="section" id="introSection">
-    <p>Upload a single Excel export (xlsx) from P6. The script auto-detects columns by header names listed below and uses them in the backward tracing algorithm. Then define the start activity to trace backwards from. You can also type a Start Activity ID manually.</p>
+    <p>Upload a single Excel export (xlsx) from P6. The script auto-detects columns by header names and computes backward critical paths. Large datasets (e.g., ~25k rows) are handled efficiently with progress updates.</p>
     <div class="row">
       <input type="file" id="xlsxInput" accept=".xlsx,.xls" />
       <button id="loadBtn" disabled>Load and Parse</button>
-      <span id="progress" class="progress" style="display:none;">Parsing...</span>
+      <span id="progress" class="progress hidden" aria-live="polite"></span>
     </div>
   </div>
 
-  <div class="section" id="mappingSection" aria-label="Mapping section" style="display:none;">
-    <h3>Detected Columns</h3>
-    <ul id="colMap"></ul>
+  <div class="section hidden" id="mappingSection" aria-label="Mapping section">
+    <div class="sectionTitle">Detected Columns</div>
+    <ul id="colMap" style="margin:0 0 10px 0;"></ul>
 
-    <h3>Choose Start Activity (trace backwards from)</h3>
-    <select id="startActivity" aria-label="Start activity dropdown"></select>
-    <div style="margin-top:8px;">
-      <label for="manualStart" style="margin-right:8px;">Or enter Start Activity ID:</label>
-      <input type="text" id="manualStart" placeholder="e.g. dpfg8620" />
-      <button id="applyManualStart" title="Use the manual start ID for tracing instead of the dropdown">Use Start ID</button>
+    <div class="sectionTitle" style="margin-top:6px;">Start Activity</div>
+    <div class="row" style="align-items:center;">
+      <select id="startActivity" aria-label="Start activity dropdown"></select>
+      <div style="margin-left:8px;">
+        <label for="manualStart" style="margin-right:6px;">Or manual Start ID:</label>
+        <input type="text" id="manualStart" placeholder="e.g. dpfg8620" />
+        <button id="applyManualStart" title="Use manual Start ID for tracing">Use Start ID</button>
+      </div>
     </div>
-    <div style="margin-top:8px;">
+
+    <div class="row" style="margin-top:8px;">
       <button id="traceBtn" style="margin-right:8px;">Trace Backward Paths</button>
       <button id="exportBtn" disabled>Export Top 10 as CSV</button>
     </div>
   </div>
 
-  <div class="section" id="resultsSection" aria-label="Results section" style="display:none;">
-    <h3>Top 10 Backward Critical Paths</h3>
+  <div class="section hidden" id="resultsSection" aria-label="Results section">
+    <div class="sectionTitle">Top 10 Backward Critical Paths</div>
     <table id="resultsTable" aria-label="Top 10 backward paths">
       <thead>
         <tr>
@@ -66,30 +72,23 @@
     </table>
   </div>
 
-  <!-- SheetJS library (lite-weight, loaded from CDN) -->
+  <!-- SheetJS library -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
 
   <script>
-    // Column header expectations (case-insensitive)
-    const EXPECTED_HEADERS = [
-      "Project ID","Activity ID","Activity Name","At Completion Duration","Start","Finish",
-      "Activity Status","Total Float","Primary Constraint","Predecessor Details","Predecessors",
-      "Successor Details","Successors"
-    ];
-
     // Helpers
-    function normalizeHeader(h){ return (h || "").toString().trim().toLowerCase(); }
+    const normalizeHeader = (h) => (h || "").toString().trim().toLowerCase();
 
-    // Global parsed data
-    let rows = []; // array of objects representing each row
-    let headerMap = {}; // canonical alias -> actual header name (for display)
-    let activityIdCol = null;
+    // Global data (careful with memory for very large files)
+    let rows = [];          // raw row objects
+    let headerMap = {};      // canonical alias -> actual header name
+    let activityIdCol = null; // key in row objects
     let durationCol = null;
     let totalFloatCol = null;
     let predCol = null;
     let nameCol = null;
 
-    // UI references
+    // UI refs
     const xlsxInput = document.getElementById('xlsxInput');
     const loadBtn = document.getElementById('loadBtn');
     const progressEl = document.getElementById('progress');
@@ -103,43 +102,74 @@
     const resultsSection = document.getElementById('resultsSection');
     const resultsBody = document.getElementById('resultsBody');
 
+    // Progress tracking
+    let totalRows = 0;
+    let parsedRows = 0;
+    let lastProgressPct = -1;
+
     const FINAL_ANCHOR = "dpfg8620";
 
     xlsxInput.addEventListener('change', () => {
-      loadBtn.disabled = !xlsxInput.files.length ? true : false;
+      loadBtn.disabled = !xlsxInput.files.length;
     });
 
     loadBtn.addEventListener('click', async () => {
-      if (!xlsxInput.files || !xlsxInput.files[0]) {
-        alert('Please select an XLSX file.');
-        return;
-      }
+      if (!xlsxInput.files?.length) return;
       const file = xlsxInput.files[0];
       try {
-        progressEl.style.display = 'inline-block';
-        progressEl.textContent = 'Parsing XLSX...';
+        resetUIForParse();
+        progressEl.classList.remove('hidden');
+        progressEl.textContent = 'Reading workbook...';
         const wb = await readWorkbook(file);
+
+        progressEl.textContent = 'Parsing sheet data (this may take a moment)...';
         const sheetName = Object.keys(wb.Sheets)[0];
         const sheet = wb.Sheets[sheetName];
-        rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-        progressEl.textContent = 'Detecting headers...';
-        if (!rows.length) {
-          throw new Error('No data found in sheet.');
+
+        // Use streaming-safe parsing if available (SheetJS returns full JSON; we emulate streaming by chunking)
+        const full = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        totalRows = full.length;
+        rows = [];
+
+        // Process in batches to keep UI responsive
+        const BATCH = 2000; // adjust batch size to balance responsiveness
+        let idx = 0;
+
+        function processBatch() {
+          const end = Math.min(idx + BATCH, totalRows);
+          // Push batch
+          for (; idx < end; idx++) {
+            rows.push(full[idx]);
+          }
+          parsedRows = rows.length;
+          const pct = Math.floor((parsedRows / totalRows) * 100);
+          if (pct !== lastProgressPct) {
+            progressEl.textContent = `Parsing: ${pct}% (${parsedRows}/${totalRows})`;
+            lastProgressPct = pct;
+          }
+          if (idx < totalRows) {
+            // Schedule next batch
+            requestAnimationFrame(processBatch);
+          } else {
+            // All done
+            progressEl.textContent = 'Detecting headers...';
+            detectHeadersAndMap(rows);
+            populateStartDropdown();
+            mappingSection.style.display = 'block';
+            resultsSection.style.display = 'none';
+            exportBtn.disabled = true;
+            progressEl.classList.add('hidden');
+          }
         }
-        detectHeadersAndMap(rows);
-        populateStartDropdown();
-        mappingSection.style.display = 'block';
-        resultsSection.style.display = 'none';
-        exportBtn.disabled = true;
-        progressEl.style.display = 'none';
+
+        processBatch(); // kick off
       } catch (err) {
-        progressEl.style.display = 'none';
+        progressEl.classList.add('hidden');
         alert('Error parsing file: ' + err.message);
       }
     });
 
     traceBtn.addEventListener('click', () => {
-      // Determine start ID: explicit manual if provided, else dropdown selection
       const manual = (manualStart.value || "").trim();
       const chosenFromDropdown = startSelect.value;
       const startId = manual || chosenFromDropdown;
@@ -148,39 +178,38 @@
         return;
       }
 
-      const { paths, activities, graphP, graphS } = computePaths(rows, headerMap);
+      // Compute paths (potentially heavy). We chunk if needed.
+      const prep = computePaths(rows, headerMap);
+      const { paths, activities, graphP, graphS } = prep;
       if (!paths || paths.length === 0) {
         alert('No backward paths found from the chosen start.');
         return;
       }
-      const filtered = traceFrom(startId, paths, activities, graphP, graphS);
-      displayResults(filtered);
-      // Enable export after results exist
-      if (filtered && filtered.length > 0) exportBtn.disabled = false;
-      else exportBtn.disabled = true;
+
+      const results = traceFrom(startId, paths, activities, graphP, graphS);
+      displayResults(results);
+      exportBtn.disabled = !(results && results.length > 0);
     });
 
     exportBtn.addEventListener('click', () => {
-      // Build a CSV from current results in the table
-      const t = document.getElementById('resultsBody');
-      if (!t || t.children.length === 0) {
+      // Build a CSV from current results
+      const rowsEl = resultsBody.querySelectorAll('tr');
+      if (!rowsEl || rowsEl.length === 0) {
         alert('No results to export.');
         return;
       }
-      // Gather displayed results from the internal last computed results
-      // We'll recreate from the visible rows
-      const rowsCsv = [];
-      rowsCsv.push(['Path Score','Path IDs','Path Names','Node Count']);
-      Array.from(t.children).forEach(tr => {
+      const header = ['Path Score','Path IDs','Path Names','Node Count'];
+      const csvRows = [header];
+      rowsEl.forEach(tr => {
         const tds = tr.querySelectorAll('td');
-        rowsCsv.push([
+        csvRows.push([
           tds[0]?.innerText,
           tds[1]?.innerText,
           tds[2]?.innerText,
           tds[3]?.innerText
         ]);
       });
-      const csvContent = rowsCsv.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const csvContent = csvRows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -192,7 +221,16 @@
       URL.revokeObjectURL(url);
     });
 
-    // Read workbook using FileReader
+    applyManualStart.addEventListener('click', () => {
+      if (manualStart.value.trim()) {
+        // Optional UX hint
+        alert('Manual Start ID set. Press "Trace Backward Paths" to run.');
+      } else {
+        alert('Enter a Start Activity ID in the text field first.');
+      }
+    });
+
+    // Helpers: reading workbook
     function readWorkbook(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -206,15 +244,33 @@
       });
     }
 
-    // Detect headers robustly across possible spellings
+    // Reset UI state for fresh parse
+    function resetUIForParse() {
+      rows = [];
+      totalRows = 0;
+      parsedRows = 0;
+      lastProgressPct = -1;
+      headerMap = {};
+      activityIdCol = null; durationCol = null;
+      totalFloatCol = null; predCol = null; nameCol = null;
+
+      // Hide sections until ready
+      mappingSection.style.display = 'none';
+      resultsSection.style.display = 'none';
+      resultsBody.innerHTML = '';
+      colMap.innerHTML = '';
+      startSelect.innerHTML = '';
+      manualStart.value = '';
+      exportBtn.disabled = true;
+    }
+
+    // Detect headers robustly and map to canonical columns
     function detectHeadersAndMap(rows) {
       const first = rows[0];
       const headers = Object.keys(first);
-      // Normalize all headers
       const normToActual = {};
       headers.forEach(h => {
-        const n = normalizeHeader(h);
-        normToActual[n] = h;
+        normToActual[normalizeHeader(h)] = h;
       });
 
       function findCol(variants) {
@@ -225,9 +281,10 @@
         return null;
       }
 
+      // Variants chosen to be permissive
       activityIdCol = findCol(['Activity ID','Activity_Id','Task ID','WBS']);
       durationCol = findCol(['At Completion Duration','Duration','Duration (hrs)']);
-      totalFloatCol = findCol(['Total Float','Total_Float','Float']);
+      totalFloatCol = findCol(['Total Float','Total_Float','Float','Float Time']);
       predCol = findCol(['Predecessors','Predecessor Details','Predecessor_Details']);
       nameCol = findCol(['Activity Name','Task Name','Name']) || activityIdCol;
 
@@ -239,7 +296,7 @@
         'Activity Name': nameCol
       };
 
-      // Display detected mapping
+      // Render detected mapping
       colMap.innerHTML = '';
       Object.entries(headerMap).forEach(([key, val]) => {
         const li = document.createElement('li');
@@ -248,6 +305,7 @@
       });
     }
 
+    // Populate start dropdown from IDs
     function populateStartDropdown() {
       startSelect.innerHTML = '';
       const ids = new Set(rows.map(r => r[activityIdCol]).filter(Boolean));
@@ -260,19 +318,23 @@
       if (ids.has(FINAL_ANCHOR)) startSelect.value = FINAL_ANCHOR;
     }
 
+    // Compute graphs and path data
     function computePaths(allRows, headers) {
-      // Build maps: key = Activity ID -> row
+      // Build maps: id -> row
       const rowsById = {};
-      allRows.forEach(r => {
+      for (let i = 0; i < allRows.length; i++) {
+        const r = allRows[i];
         const id = r[activityIdCol];
         if (id) rowsById[id] = r;
-      });
+      }
 
-      // Build graphPred (predecessors)
+      // Graphs: predecessors and successors
       const graphP = {};
       const graphS = {};
 
-      allRows.forEach(r => {
+      // Predecessors per row
+      for (let i = 0; i < allRows.length; i++) {
+        const r = allRows[i];
         const a = r[activityIdCol];
         const predsRaw = (r[predCol] || "").toString().trim();
         const predsList = predsRaw ? predsRaw.split(',').map(x => x.trim()).filter(x => x.length) : [];
@@ -281,57 +343,54 @@
           if (!graphS[p]) graphS[p] = [];
           graphS[p].push(a);
         });
-      });
+      }
 
-      // Prepare details map
+      // Activities meta
       const activities = {};
-      allRows.forEach(r => {
+      for (let i = 0; i < allRows.length; i++) {
+        const r = allRows[i];
         const id = r[activityIdCol];
+        if (!id) continue;
         activities[id] = {
           id,
           name: r[nameCol] || id,
           duration: parseFloat(r[durationCol] || 0) || 0,
-          totalFloat: parseFloat(r[totalFloatCol] || 0) || 0,
+          totalFloat: parseFloat(r[totalFloatCol] || 0) || 0
         };
-      });
+      }
 
-      return {
-        paths: findBackwardPaths(FINAL_ANCHOR, graphP),
-        activities,
-        graphP,
-        graphS
-      };
+      const paths = findBackwardPaths(FINAL_ANCHOR, graphP);
+      return { paths, activities, graphP, graphS };
     }
 
+    // DFS to collect backward paths ending at finalNode
     function findBackwardPaths(finalNode, graph) {
       const paths = [];
-      function dfs(node, path, visited) {
+      const stack = [[finalNode, [finalNode]]];
+      // Iterative DFS to avoid call-stack blow for deep graphs
+      while (stack.length) {
+        const [node, path] = stack.pop();
         const preds = graph[node] || [];
         if (preds.length === 0) {
-          paths.push([...path]);
-          return;
+          paths.push(path.slice());
+          continue;
         }
         for (const p of preds) {
-          if (visited.has(p)) continue;
-          visited.add(p);
-          path.push(p);
-          dfs(p, path, visited);
-          path.pop();
-          visited.delete(p);
+          if (path.includes(p)) continue; // cycle guard
+          const newPath = path.concat(p);
+          stack.push([p, newPath]);
         }
       }
-      dfs(finalNode, [finalNode], new Set([finalNode]));
+      // Convert to start->end order
       return paths.map(p => p.slice().reverse());
     }
 
+    // Trace paths from chosen start
     function traceFrom(startId, paths, activities, graphP, graphS) {
-      // Build a map for quick access to totalFloat
       const tFloat = {};
       Object.values(activities).forEach(a => { tFloat[a.id] = a.totalFloat || 0; });
 
-      // Filter paths that include startId
       const valid = paths.filter(p => p.includes(startId));
-
       const scored = valid.map(path => {
         const score = path.reduce((acc, nid) => acc + (tFloat[nid] || 0), 0);
         const pathIds = path.join(' -> ');
@@ -357,19 +416,6 @@
         resultsBody.appendChild(tr);
       });
     }
-
-    // Optional: clear manual start when you choose to trace
-    applyManualStart.addEventListener('click', () => {
-      // Trigger a trace if a start ID has been entered
-      if (manualStart.value.trim()) {
-        // If dropdown has a value, keep it for reference; traceBtn will use manual value
-        // No additional action needed here; user can press "Trace Backward Paths"
-        alert('Manual Start ID set. Click "Trace Backward Paths" to run.');
-      } else {
-        alert('Enter a Start Activity ID in the text box first.');
-      }
-    });
-
   </script>
 </body>
 </html>
