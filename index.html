@@ -127,10 +127,12 @@ function parseDateFlexible(s, localePref = "us") {
   const str = s.trim();
   if (!str) return null;
 
+  // Native parse supports ISO and some localized forms
   const t = Date.parse(str);
   if (!Number.isNaN(t)) return new Date(t);
 
-  const slashRe = /^(\d{1,2})\/\-[\/\-](\d{2\d{2})(?::(\d{2}))?)?$/;
+  // MM/DD/YYYY or DD/MM/YYYY with optional time HH:MM[:SS]
+  const slashRe = /^(\d{1,2})\/\-\/\-(?: T:(\d{2})(?::(\d{2}))?)?$/;
   const mSlash = slashRe.exec(str);
   if (mSlash) {
     let a = +mSlash[1], b = +mSlash[2], y = +mSlash[3]; if (y < 100) y += 2000;
@@ -139,6 +141,7 @@ function parseDateFlexible(s, localePref = "us") {
     return new Date(y, M-1, D, hh, mm, ss);
   }
 
+  // 05-Jan-2025 08:00 or 5-Jan-25
   const monMap = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
   const dashMon = /^(\d{1,2})- - (?: T:(\d{2})(?::(\d{2}))?)?$/;
   const mDash = dashMon.exec(str);
@@ -157,7 +160,7 @@ function parseDateFlexible(s, localePref = "us") {
 
 /* ====================== Relationship & Lag Parsing ====================== */
 function parseRelationList(str) {
-  // Generic parser: "A100 FS+2d; A200 SS-8h" OR just "A100,A200"
+  // Accepts: "A100 FS+2d; A200 SS-8h" OR just "A100,A200"
   if (!str) return [];
   const items = str.split(/[,;\n]+/).map(x => x.trim()).filter(Boolean);
   const out = [];
@@ -229,7 +232,7 @@ function buildModel(csvObj, opts) {
     }
   };
 
-  // 1) Build from Predecessor Details / Predecessors (succ row lists its predecessors)
+  // 1) From Predecessor Details / Predecessors (succ row lists its predecessors)
   for (const r of records) {
     const succId = norm(r[idCol]);
     if (!succId) continue;
@@ -239,7 +242,6 @@ function buildModel(csvObj, opts) {
       for (const it of items) addEdge(succId, it.otherId, it.type, it.lagVal, it.lagUnitRaw);
     }
     if (predsCol && r[predsCol] && (!predDetailsCol || !r[predDetailsCol])) {
-      // Only add simple predecessors if no detailed column provided for this row
       const items = parseSimpleIDs(r[predsCol]);
       for (const it of items) addEdge(succId, it.otherId, it.type, it.lagVal, it.lagUnitRaw);
     }
