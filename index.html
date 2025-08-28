@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Critical Path Finder — CSV Only (Computes Free Float)</title>
+<title>Critical Path Finder — CSV Only (Full Depth, Free Float)</title>
 <style>
   :root {
     --bg: #ffffff; --fg: #111; --muted: #666;
@@ -15,21 +15,21 @@
   input[type="text"], select { padding: 0.45rem; }
   input[type="text"] { width: 360px; }
   button { padding: 0.5rem 0.9rem; margin-right: 0.5rem; cursor: pointer; }
-  #log { white-space: pre-wrap; background: var(--panel); border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; min-height: 6rem; }
+  #log { white-space: pre-wrap; background: var(--panel); border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; min-height: 8rem; }
   .muted { color: var(--muted); font-size: 0.9rem; }
-  .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.75rem; }
+  .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.75rem; }
   label { font-weight: 600; display: block; margin-bottom: 0.25rem; }
   .small { font-size: 0.9rem; }
 </style>
 </head>
 <body>
-  <h1>Critical Path Finder — CSV Only (Computes Free Float)</h1>
+  <h1>Critical Path Finder — CSV Only (Full Depth, Free Float)</h1>
 
   <div class="row controls">
     <div>
       <label for="fileInput">CSV File (.csv)</label>
       <input id="fileInput" type="file" accept=".csv" />
-      <div class="muted small">Everything runs locally in your browser.</div>
+      <div class="muted small">Runs entirely in your browser (offline).</div>
     </div>
 
     <div>
@@ -53,23 +53,23 @@
         <option value="intl">Intl — DD/MM/YYYY [HH:MM]</option>
         <option value="auto">Auto (try multiple patterns)</option>
       </select>
-      <div class="muted small">Also supports “DD-MMM-YYYY” (e.g., 05-Jan-2025 08:00).</div>
+      <div class="muted small">Also supports 05-Jan-2025 08:00, etc.</div>
     </div>
   </div>
 
   <div class="row">
     <button id="runBtn">Run Analysis</button>
     <button id="resetBtn">Reset</button>
-    <button id="downloadBtn" disabled>Download Results (CSV)</button>
+    <button id="downloadBtn" disabled>Download Top‑10 Paths (CSV)</button>
   </div>
 
   <div class="row">
     <strong>Notes</strong>
     <ul class="small">
-      <li>Traverses <em>predecessors</em> only (backward). Cycles are detected and handled.</li>
-      <li>Per‑edge Free Float is computed from <code>Start</code>/<code>Finish</code> and relationship + lag from <code>Predecessor Details</code>.</li>
-      <li>If only <code>Predecessors</code> (IDs) exist, edges are assumed <code>FS + 0</code>.</li>
-      <li>Top 10 paths with the lowest sum of per‑edge Free Float are returned.</li>
+      <li>Traverses <em>all</em> predecessors recursively, cycle‑safe.</li>
+      <li>Per‑edge Free Float is computed from <code>Start</code>/<code>Finish</code> and relationship + lag from <code>Predecessor Details</code>. If only <code>Predecessors</code> is present, edges default to <code>FS + 0</code>.</li>
+      <li>Top‑10 paths are ranked by the sum of per‑edge Free Float (lowest totals first).</li>
+      <li>Export CSV puts one path per row, with all Activity IDs on that path (from the activity of interest backward).</li>
     </ul>
   </div>
 
@@ -80,17 +80,12 @@
 /* ========================== CSV Parsing ========================== */
 function parseCSV(text, delimiter = ",") {
   const rows = [];
-  let row = [];
-  let val = "";
-  let inQuotes = false;
-
+  let row = [], val = "", inQuotes = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i], n = text[i+1];
     if (inQuotes) {
-      if (c === '"') {
-        if (n === '"') { val += '"'; i++; }
-        else { inQuotes = false; }
-      } else { val += c; }
+      if (c === '"') { if (n === '"') { val += '"'; i++; } else { inQuotes = false; } }
+      else { val += c; }
     } else {
       if (c === '"') inQuotes = true;
       else if (c === delimiter) { row.push(val); val = ""; }
@@ -99,8 +94,7 @@ function parseCSV(text, delimiter = ",") {
       else { val += c; }
     }
   }
-  row.push(val);
-  rows.push(row);
+  row.push(val); rows.push(row);
   if (rows.length && rows[rows.length-1].length === 1 && rows[rows.length-1][0] === "") rows.pop();
   return rows;
 }
@@ -134,62 +128,47 @@ function parseDateFlexible(s, localePref = "us") {
   const str = s.trim();
   if (!str) return null;
 
-  // ISO / native parse
   const t = Date.parse(str);
   if (!Number.isNaN(t)) return new Date(t);
 
-  // Patterns: US or Intl slashes
   const slashRe = /^(\d{1,2})\/\-\/\-(?: T:(\d{2})(?::(\d{2}))?)?$/;
   const mSlash = slashRe.exec(str);
   if (mSlash) {
-    let a = parseInt(mSlash[1],10), b = parseInt(mSlash[2],10), y = parseInt(mSlash[3],10);
-    if (y < 100) y += 2000;
-    let M, D;
-    if (localePref === "intl") { D = a; M = b; }
-    else { M = a; D = b; } // default US
-    const hh = parseInt(mSlash[4] || "0",10), mm = parseInt(mSlash[5] || "0",10), ss = parseInt(mSlash[6] || "0",10);
+    let a = +mSlash[1], b = +mSlash[2], y = +mSlash[3]; if (y < 100) y += 2000;
+    let M, D; if (localePref === "intl") { D = a; M = b; } else { M = a; D = b; }
+    const hh = +(mSlash[4]||0), mm = +(mSlash[5]||0), ss = +(mSlash[6]||0);
     return new Date(y, M-1, D, hh, mm, ss);
   }
 
-  // Patterns: 05-Jan-2025 08:00 or 5-Jan-25
   const monMap = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
   const dashMon = /^(\d{1,2})- - (?: T:(\d{2})(?::(\d{2}))?)?$/;
   const mDash = dashMon.exec(str);
   if (mDash) {
-    const D = parseInt(mDash[1],10);
-    const mon = monMap[mDash[2].toLowerCase()];
+    const D = +mDash[1], mon = monMap[mDash[2].toLowerCase()];
     if (mon != null) {
-      let y = parseInt(mDash[3],10); if (y < 100) y += 2000;
-      const hh = parseInt(mDash[4] || "0",10), mm = parseInt(mDash[5] || "0",10), ss = parseInt(mDash[6] || "0",10);
+      let y = +mDash[3]; if (y < 100) y += 2000;
+      const hh = +(mDash[4]||0), mm = +(mDash[5]||0), ss = +(mDash[6]||0);
       return new Date(y, mon, D, hh, mm, ss);
     }
   }
 
-  // Fallback: try flipping locale if auto
-  if (localePref === "auto") {
-    return parseDateFlexible(str, "us") || parseDateFlexible(str, "intl");
-  }
-
+  if (localePref === "auto") return parseDateFlexible(str, "us") || parseDateFlexible(str, "intl");
   return null;
 }
 
 /* ====================== Relationship & Lag Parsing ====================== */
 function parsePredDetails(detailsStr) {
-  // Returns array of { predId, type, lagVal, lagUnitRaw }
   // Accepts: "A100 FS+2d; A200 SS-8h", "B10", "C30FF-1d"
   if (!detailsStr) return [];
   const items = detailsStr.split(/[,;\n]+/).map(x => x.trim()).filter(Boolean);
   const out = [];
   for (const it of items) {
-    // ID is first token up to whitespace or '('
     const idMatch = it.match(/^[^\s()]+/);
     const predId = idMatch ? idMatch[0].trim() : it;
 
-    // Relationship type
     const relMatch = it.match(/\b(FS|SS|FF|SF)\b/i);
     const type = relMatch ? relMatch[1].toUpperCase() : "FS";
 
-    // Lag (e.g., +2d, -8h, +1.5, -90m)
     const lagMatch = it.match(/([+-]\s*\d*\.?\d*\s*(?:d|h|m)?)/i);
     let lagVal = 0, lagUnitRaw = null;
     if (lagMatch) {
@@ -197,8 +176,8 @@ function parsePredDetails(detailsStr) {
       const unitM = raw.match(/[dhm]$/i);
       lagUnitRaw = unitM ? unitM[0].toLowerCase() : null;
       const num = raw.replace(/[dhm]/ig,"");
-      lagVal = parseFloat(num);
-      if (Number.isNaN(lagVal)) lagVal = 0;
+      const parsed = parseFloat(num);
+      lagVal = Number.isNaN(parsed) ? 0 : parsed;
     }
     out.push({ predId, type, lagVal, lagUnitRaw });
   }
@@ -227,20 +206,16 @@ function buildModel(csvObj, opts) {
     throw new Error('Required column "Predecessor Details" or "Predecessors" not found.');
   }
 
-  // Build nodes
   const nodes = new Map(); // id -> { id, ES, EF, startStr, finishStr }
   for (const r of records) {
     const id = (r[idCol] ?? "").trim();
     if (!id) continue;
-    const startStr = r[startCol] ?? "";
-    const finishStr = r[finishCol] ?? "";
-    const ES = parseDateFlexible(startStr, opts.dateLocale);
-    const EF = parseDateFlexible(finishStr, opts.dateLocale);
-    nodes.set(id, { id, ES, EF, startStr, finishStr });
+    const ES = parseDateFlexible(r[startCol], opts.dateLocale);
+    const EF = parseDateFlexible(r[finishCol], opts.dateLocale);
+    nodes.set(id, { id, ES, EF, startStr: r[startCol] ?? "", finishStr: r[finishCol] ?? "" });
   }
 
-  // Build predecessor relationships for each successor
-  const predMap = new Map(); // succId -> array of { predId, type, lagVal, lagUnitRaw }
+  const predMap = new Map(); // succId -> [{ predId, type, lagVal, lagUnitRaw }]
   for (const r of records) {
     const succId = (r[idCol] ?? "").trim();
     if (!succId) continue;
@@ -250,28 +225,22 @@ function buildModel(csvObj, opts) {
     } else if (predsCol && r[predsCol]) {
       arr = parsePredecessorIDs(r[predsCol]);
     }
-    // Filter entries that at least have an ID
     arr = arr.filter(x => !!x.predId);
     if (arr.length) predMap.set(succId, arr);
   }
 
-  return { nodes, predMap };
+  return { nodes, predMap, idCol, startCol, finishCol };
 }
 
 /* ========================= Free Float Computation ========================= */
-function unitToMs(unitSel) {
-  return unitSel === "hours" ? 3600_000 : 86_400_000; // hours or days
-}
+function unitToMs(unitSel) { return unitSel === "hours" ? 3600000 : 86400000; }
 function lagToMs(lagVal, lagUnitRaw, unitSel) {
   if (!lagVal) return 0;
-  if (!lagUnitRaw) {
-    // No explicit unit -> assume selected unit
-    return lagVal * unitToMs(unitSel);
-  }
+  if (!lagUnitRaw) return lagVal * unitToMs(unitSel);
   switch (lagUnitRaw) {
-    case 'd': return lagVal * 86_400_000;
-    case 'h': return lagVal * 3_600_000;
-    case 'm': return lagVal * 60_000;
+    case "d": return lagVal * 86400000;
+    case "h": return lagVal * 3600000;
+    case "m": return lagVal * 60000;
     default:  return lagVal * unitToMs(unitSel);
   }
 }
@@ -284,7 +253,6 @@ function edgeFreeFloat(predNode, succNode, relType, lagVal, lagUnitRaw, unitSel)
   const ES_S = succNode?.ES || null;
   const EF_S = succNode?.EF || null;
 
-  // Determine base and target timestamps per relationship
   let base = null, target = null;
   switch ((relType || "FS").toUpperCase()) {
     case "SS": base = ES_P; target = ES_S; break;
@@ -294,66 +262,73 @@ function edgeFreeFloat(predNode, succNode, relType, lagVal, lagUnitRaw, unitSel)
     default:   base = EF_P; target = ES_S; break;
   }
 
-  if (!base || !target) {
-    return { ffUnits: 0, ms: 0, missingDates: true };
-  }
+  if (!base || !target) return { ffUnits: 0, ms: 0, missingDates: true };
 
   const ms = target.getTime() - (base.getTime() + lagMs);
   return { ffUnits: ms / oneUnitMs, ms, missingDates: false };
 }
 
 /* =============================== DFS / Paths =============================== */
-function dfsPaths(model, startId, unitSel, maxPaths = 50000) {
+/*
+  We do a full-depth DFS that collects:
+  - nodesOnPath: [Succ, Pred1, Pred2, ... leafPred]
+  - edgesOnPath: [{succId, predId, type, lag, ffUnits, flags}, ...] aligned with transitions
+  We stop ONLY at: (a) no predecessors recorded for current node, or (b) cycle detection.
+*/
+function enumeratePaths(model, startId, unitSel, maxPaths = 200000) {
   const { nodes, predMap } = model;
   if (!nodes.has(startId)) throw new Error(`Starting Activity ID "${startId}" not found in file.`);
 
-  const results = [];
-  const path = []; // sequence of edges: { succId, predId, type, lagVal, lagUnitRaw, ffUnits, flags }
+  const results = [];                     // { nodes: [ids], edges: [...], score }
+  const nodesOnPath = [startId];          // start with the activity of interest
+  const edgesOnPath = [];                 // per-edge info aligned with transitions
 
-  const visited = new Set(); // to detect cycles by Activity ID
+  const onStack = new Set([startId]);     // cycle detection within current path
 
   function dfs(currSuccId) {
     if (results.length >= maxPaths) return;
 
     const preds = predMap.get(currSuccId) || [];
-    if (visited.has(currSuccId)) {
-      // cycle – output the path as it stands with a cycle marker on a dummy edge
-      path.push({ succId: currSuccId, predId: "(cycle)", type: "FS", lagVal: 0, lagUnitRaw: null, ffUnits: 0, flags: { cycle: true } });
-      results.push([...path]);
-      path.pop();
+    if (preds.length === 0) {
+      // Leaf reached — compute score and record
+      const score = edgesOnPath.reduce((acc, e) => acc + (Number(e.ffUnits) || 0), 0);
+      results.push({ nodes: [...nodesOnPath], edges: [...edgesOnPath], score });
       return;
     }
 
-    visited.add(currSuccId);
+    for (const rel of preds) {
+      const predId = rel.predId;
+      const type = (rel.type || "FS").toUpperCase();
+      const predNode = nodes.get(predId) || null;
+      const succNode = nodes.get(currSuccId) || null;
+      const ff = edgeFreeFloat(predNode, succNode, type, rel.lagVal || 0, rel.lagUnitRaw || null, unitSel);
 
-    if (preds.length === 0) {
-      // Reached a start (no predecessors)
-      results.push([...path]);
-    } else {
-      for (const rel of preds) {
-        const predId = rel.predId;
-        const predNode = nodes.get(predId) || null;
-        const succNode = nodes.get(currSuccId) || null;
+      // Add this transition (currSuccId <- predId)
+      edgesOnPath.push({
+        succId: currSuccId, predId, type,
+        lagVal: rel.lagVal || 0, lagUnitRaw: rel.lagUnitRaw || null,
+        ffUnits: ff.ffUnits, flags: { missingDates: ff.missingDates, unknownPred: !predNode }
+      });
 
-        const ff = edgeFreeFloat(predNode, succNode, rel.type, rel.lagVal, rel.lagUnitRaw, unitSel);
-        path.push({
-          succId: currSuccId,
-          predId,
-          type: (rel.type || "FS").toUpperCase(),
-          lagVal: rel.lagVal || 0,
-          lagUnitRaw: rel.lagUnitRaw || null,
-          ffUnits: ff.ffUnits,
-          flags: { missingDates: ff.missingDates, unknownPred: !predNode }
-        });
+      // Extend node sequence
+      nodesOnPath.push(predId);
 
-        // Recurse into predecessor
+      if (onStack.has(predId)) {
+        // Cycle detected — close out a partial path
+        const score = edgesOnPath.reduce((acc, e) => acc + (Number(e.ffUnits) || 0), 0);
+        results.push({ nodes: [...nodesOnPath, "(cycle)"], edges: [...edgesOnPath], score, cycle: true });
+      } else {
+        onStack.add(predId);
         dfs(predId);
-
-        path.pop();
+        onStack.delete(predId);
       }
-    }
 
-    visited.delete(currSuccId);
+      // Backtrack
+      nodesOnPath.pop();
+      edgesOnPath.pop();
+
+      if (results.length >= maxPaths) break;
+    }
   }
 
   dfs(startId);
@@ -363,12 +338,57 @@ function dfsPaths(model, startId, unitSel, maxPaths = 50000) {
 /* ============================ Ranking & Export ============================ */
 function rankPathsByFF(paths) {
   return paths
-    .map((edges, idx) => {
-      const score = edges.reduce((acc, e) => acc + (Number(e.ffUnits) || 0), 0);
-      return { idx, edges, score };
-    })
+    .map((p, idx) => ({ ...p, idx }))
     .sort((a, b) => a.score - b.score)
     .slice(0, 10);
+}
+
+/* Build a single CSV where each row is one path, with all IDs in columns. */
+function buildPathsCSV(topPaths, unitSel) {
+  const u = unitSel === "hours" ? "h" : "d";
+  const maxLen = topPaths.reduce((m, p) => Math.max(m, p.nodes.length), 0);
+
+  // Header: Path, Rank, NodeCount, TotalFF, PathString, Node_1..Node_N
+  const header = ["Path","Rank","NodeCount",`Total FF (${u})`,"Path String"];
+  for (let i = 1; i <= maxLen; i++) header.push(`Node_${i}`);
+
+  const rows = [header];
+
+  topPaths.forEach((p, i) => {
+    const pathString = p.nodes.join(" <- "); // S <- P1 <- P2 ...
+    const base = [`Path_${i+1}`, i+1, p.nodes.length, p.score.toFixed(4), pathString];
+    const nodeCols = Array.from({ length: maxLen }, (_, k) => p.nodes[k] ?? "");
+    rows.push([...base, ...nodeCols]);
+  });
+
+  return rows;
+}
+
+/* Also provide a detailed CSV with per-edge FF (optional, downloadable via console). */
+function buildEdgesCSV(topPaths, unitSel) {
+  const u = unitSel === "hours" ? "h" : "d";
+  const rows = [[
+    "Path","Rank","Order","Successor ID","Predecessor ID","Rel Type","Lag (raw)",
+    `Edge FF (${u})`,"Cumulative FF","MissingDates","UnknownPred"
+  ]];
+
+  topPaths.forEach((p, i) => {
+    let cum = 0;
+    p.edges.forEach((e, k) => {
+      const ff = Number(e.ffUnits) || 0;
+      cum += ff;
+      rows.push([
+        `Path_${i+1}`, i+1, k+1,
+        e.succId, e.predId, e.type,
+        (e.lagVal ? (e.lagVal + (e.lagUnitRaw || u)) : "0"),
+        ff.toFixed(4), cum.toFixed(4),
+        e.flags.missingDates ? "Y" : "",
+        e.flags.unknownPred ? "Y" : ""
+      ]);
+    });
+  });
+
+  return rows;
 }
 
 function toCSV(rows) {
@@ -397,7 +417,7 @@ const resetBtn    = document.getElementById("resetBtn");
 const downloadBtn = document.getElementById("downloadBtn");
 const logEl       = document.getElementById("log");
 
-let lastResults = null; // ranked paths
+let lastTopPaths = null;
 let lastUnitSel = "days";
 
 function log(msg) { logEl.textContent = msg; }
@@ -408,8 +428,8 @@ runBtn.addEventListener("click", () => {
   const startId = (startIdInput.value || "").trim();
   if (!startId) return log("Please enter a Starting Activity ID.");
 
-  const unitSel = unitSelect.value; // "days" or "hours"
-  const localeSel = dateLocale.value; // "us" | "intl" | "auto"
+  const unitSel = unitSelect.value;
+  const localeSel = dateLocale.value;
 
   const reader = new FileReader();
   reader.onerror = () => log("Failed to read the CSV. Please try again.");
@@ -420,83 +440,49 @@ runBtn.addEventListener("click", () => {
       const csvObj = rowsToObjects(rows);
       const model = buildModel(csvObj, { dateLocale: localeSel });
 
-      const allPaths = dfsPaths(model, startId, unitSel, 100000);
+      // Enumerate all paths (full depth), then rank by total FF
+      const allPaths = enumeratePaths(model, startId, unitSel, 200000);
       if (allPaths.length === 0) {
         log(`No predecessor paths found starting from "${startId}".`);
-        lastResults = null;
-        downloadBtn.disabled = true;
-        return;
+        lastTopPaths = null; downloadBtn.disabled = true; return;
       }
 
-      const ranked = rankPathsByFF(allPaths);
-      lastResults = ranked;
+      const topPaths = rankPathsByFF(allPaths);
+      lastTopPaths = topPaths;
       lastUnitSel = unitSel;
 
-      // Build preview
+      // Preview (Top‑10)
       const u = unitSel === "hours" ? "h" : "d";
-      let preview = `Computed ${allPaths.length} path(s). Showing Top ${ranked.length} by lowest total Free Float:\n\n`;
-      ranked.forEach((item, i) => {
-        // Represent as S <- P1(ff) <- P2(ff) ...
-        const seq = [];
-        let currSucc = item.edges[0]?.succId || startId;
-        seq.push(currSucc);
-        for (const e of item.edges) {
-          seq.push(`${e.predId} (ff=${(e.ffUnits).toFixed(2)}${u}${e.flags.missingDates ? ", *dates?" : ""})`);
-        }
-        preview += `#${i+1}  Score=${item.score.toFixed(2)}${u}  Path: ${seq.join(" <- ")}\n`;
+      let preview = `Found ${allPaths.length} total path(s). Showing Top ${topPaths.length} by lowest total Free Float:\n\n`;
+      topPaths.forEach((p, i) => {
+        preview += `#${i+1}  Total FF=${p.score.toFixed(2)}${u}  Path: ${p.nodes.join(" <- ")}\n`;
       });
-      preview += `\n* “ff” is per-edge Free Float in ${u}. “*dates?” marks edges where Start/Finish were missing.`;
       log(preview);
       downloadBtn.disabled = false;
+
+      // (Optional) If you also want the per-edge CSV, uncomment to auto‑download a second file:
+      // const edgesCSV = toCSV(buildEdgesCSV(topPaths, unitSel));
+      // downloadCSV("critical_paths_edges.csv", edgesCSV);
+
     } catch (e) {
       console.error(e);
       log("Error: " + (e && e.message ? e.message : e));
-      lastResults = null;
-      downloadBtn.disabled = true;
+      lastTopPaths = null; downloadBtn.disabled = true;
     }
   };
   reader.readAsText(file, "utf-8");
 });
 
 downloadBtn.addEventListener("click", () => {
-  if (!lastResults) return;
-  const u = lastUnitSel === "hours" ? "h" : "d";
-
-  // Build detailed rows
-  const rows = [[
-    "Path","Rank","Order",
-    "Successor ID","Predecessor ID","Rel Type","Lag (raw)",
-    `FF (${u})`,"Cumulative FF",
-    "MissingDates","UnknownPred"
-  ]];
-
-  lastResults.forEach((item, rankIdx) => {
-    let cum = 0;
-    item.edges.forEach((e, orderIdx) => {
-      const ff = Number(e.ffUnits) || 0;
-      cum += ff;
-      rows.push([
-        `Path_${rankIdx+1}`, rankIdx+1, orderIdx+1,
-        e.succId, e.predId, e.type,
-        (e.lagVal ? (e.lagVal + (e.lagUnitRaw || u)) : "0"),
-        ff.toFixed(4), cum.toFixed(4),
-        e.flags.missingDates ? "Y" : "",
-        e.flags.unknownPred ? "Y" : ""
-      ]);
-    });
-    // If a path is length 0 (no predecessors), still output a header row for traceability
-    if (item.edges.length === 0) {
-      rows.push([`Path_${rankIdx+1}`, rankIdx+1, 1, item.succId || "", "", "", "0", "0", "0", "", ""]);
-    }
-  });
-
-  downloadCSV("critical_paths_free_float.csv", toCSV(rows));
+  if (!lastTopPaths) return;
+  const rows = buildPathsCSV(lastTopPaths, lastUnitSel);
+  downloadCSV("critical_paths_top10_paths.csv", toCSV(rows));
 });
 
 resetBtn.addEventListener("click", () => {
   fileInput.value = "";
   startIdInput.value = "";
-  lastResults = null;
+  lastTopPaths = null;
   downloadBtn.disabled = true;
   log("Load a CSV, enter a Starting Activity ID, configure options, then click “Run Analysis”.");
 });
