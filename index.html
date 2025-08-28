@@ -287,10 +287,11 @@ function lagToMs(lagVal, lagUnitRaw, unitSel) {
 function edgeFreeFloat(predNode, succNode, relType, lagVal, lagUnitRaw, unitSel) {
   const oneUnitMs = unitToMs(unitSel);
   const lagMs = lagToMs(lagVal, lagUnitRaw, unitSel);
-  const ES_P = predNode?.ES || null;
-  const EF_P = predNode?.EF || null;
-  const ES_S = succNode?.ES || null;
-  const EF_S = succNode?.EF || null;
+  const ES_P = predNode && predNode.ES ? predNode.ES : null;
+  const EF_P = predNode && predNode.EF ? predNode.EF : null;
+  const ES_S = succNode && succNode.ES ? succNode.ES : null;
+  const EF_S = succNode && succNode.EF ? succNode.EF : null;
+
   let base = null, target = null;
   switch ((relType || 'FS').toUpperCase()) {
     case 'SS': base = ES_P; target = ES_S; break;
@@ -299,10 +300,12 @@ function edgeFreeFloat(predNode, succNode, relType, lagVal, lagUnitRaw, unitSel)
     case 'FS':
     default:   base = EF_P; target = ES_S; break;
   }
+
   if (!base || !target || isNaN(base.getTime()) || isNaN(target.getTime())) {
     console.warn(`Missing or invalid dates for ${predNode?.id} -> ${succNode?.id}`);
     return { ffUnits: Infinity, ms: Infinity, missingDates: true };
   }
+
   const ms = target.getTime() - (base.getTime() + lagMs);
   const ffUnits = ms / oneUnitMs;
   console.log(`FF between ${predNode?.id} -> ${succNode?.id} [${relType}] = ${ffUnits.toFixed(2)} ${unitSel}`);
