@@ -306,7 +306,7 @@ function edgeFreeFloat(predNode, succNode, relType, lagVal, lagUnitRaw, unitSel)
   const ms = target.getTime() - (base.getTime() + lagMs);
   const ffUnits = ms / oneUnitMs;
   console.log(`FF between ${predNode?.id} -> ${succNode?.id} [${relType}] = ${ffUnits.toFixed(2)} ${unitSel}`);
-  return { ffUnits, ms, missingDates: false };
+  return { ffUnits: ffUnits, ms: ms, missingDates: false };
 }
 
 
