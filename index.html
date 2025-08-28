@@ -452,8 +452,8 @@ runBtn.addEventListener("click", () => {
       topPaths.forEach((p, i) => {
         preview += `#${i+1}  Total FF=${p.score.toFixed(2)}${u}  Path: ${p.nodes.join(" <- ")}\n`;
       });
-      if (allPaths.length >= 1000000) {
-        preview += `\nNote: Path enumeration reached the safety limit (1,000,000). Increase if needed.`;
+      if (allPaths.length >= 100000000000) {
+        preview += `\nNote: Path enumeration reached the safety limit (100,000,000,000). Increase if needed.`;
       }
       log(preview);
       downloadBtn.disabled = false;
