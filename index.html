@@ -308,62 +308,49 @@ function edgeFreeFloat(predNode, succNode, relType, lagVal, lagUnitRaw, unitSel)
 }
 
 /* =============================== Full-Depth DFS =============================== */
+
 function enumeratePaths(model, startId, unitSel, maxPaths = 1000000) {
-  const { nodes, predMap } = model;
-  if (!nodes.has(startId)) throw new Error(`Starting Activity ID "${startId}" not found in file.`);
+    const { nodes, predMap } = model;
+    if (!nodes.has(startId)) throw new Error(`Starting Activity ID "${startId}" not found in file.`);
 
-  const results = [];                     // { nodes: [ids], edges: [...], score }
-  const nodesOnPath = [startId];          // Start with activity of interest
-  const edgesOnPath = [];                 // per-edge info aligned with transitions
-  const onStack = new Set([startId]);     // cycle detection
+    const queue = [{ path: [startId], score: 0 }];
+    const topPaths = [];
 
-  function dfs(currSuccId) {
-    if (results.length >= maxPaths) return;
+    while (queue.length > 0 && topPaths.length < maxPaths) {
+        const current = queue.shift();
+        const currId = current.path[current.path.length - 1];
+        const preds = predMap.get(currId) || [];
 
-    const preds = predMap.get(currSuccId) || [];
-    if (preds.length === 0) {
-      // Leaf reached — finalize
-      const score = edgesOnPath.reduce((acc, e) => acc + (Number(e.ffUnits) || 0), 0);
-      results.push({ nodes: [...nodesOnPath], edges: [...edgesOnPath], score });
-      return;
+        if (preds.length === 0) {
+            // Leaf node reached
+            insertPath(topPaths, current);
+            continue;
+        }
+
+        // Sort predecessors by smallest free float
+        const sortedPreds = preds.map(rel => {
+            const predNode = nodes.get(rel.predId);
+            const succNode = nodes.get(currId);
+            const ff = edgeFreeFloat(predNode, succNode, rel.type, rel.lagVal, rel.lagUnitRaw, unitSel);
+            return { ...rel, ffUnits: ff.ffUnits };
+        }).sort((a, b) => a.ffUnits - b.ffUnits);
+
+        for (const rel of sortedPreds) {
+            const newPath = [...current.path, rel.predId];
+            const newScore = current.score + rel.ffUnits;
+            queue.push({ path: newPath, score: newScore });
+        }
     }
 
-    for (const rel of preds) {
-      const predId = norm(rel.predId);
-      const type = (rel.type || "FS").toUpperCase();
-      const predNode = nodes.get(predId) || null;
-      const succNode = nodes.get(currSuccId) || null;
-      const ff = edgeFreeFloat(predNode, succNode, type, rel.lagVal || 0, rel.lagUnitRaw || null, unitSel);
+    return topPaths;
 
-      edgesOnPath.push({
-        succId: currSuccId, predId, type,
-        lagVal: rel.lagVal || 0, lagUnitRaw: rel.lagUnitRaw || null,
-        ffUnits: ff.ffUnits, flags: { missingDates: ff.missingDates, unknownPred: !predNode }
-      });
-      nodesOnPath.push(predId);
-
-      if (onStack.has(predId)) {
-        // Cycle: record partial and do not recurse deeper
-        const score = edgesOnPath.reduce((acc, e) => acc + (Number(e.ffUnits) || 0), 0);
-        results.push({ nodes: [...nodesOnPath, "(cycle)"], edges: [...edgesOnPath], score, cycle: true });
-      } else {
-        onStack.add(predId);
-        dfs(predId);
-        onStack.delete(predId);
-      }
-
-      nodesOnPath.pop();
-      edgesOnPath.pop();
-
-      if (results.length >= maxPaths) break;
+    function insertPath(paths, newEntry) {
+        paths.push(newEntry);
+        paths.sort((a, b) => a.score - b.score);
+        if (paths.length > 10) paths.pop();
     }
-  }
-
-  dfs(startId);
-  return results;
 }
 
-/* ============================ Ranking & Export ============================ */
 function rankPathsByFF(paths) {
   return paths
     .map((p, idx) => ({ ...p, idx }))
