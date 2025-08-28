@@ -286,25 +286,24 @@ function lagToMs(lagVal, lagUnitRaw, unitSel) {
 function edgeFreeFloat(predNode, succNode, relType, lagVal, lagUnitRaw, unitSel) {
   const oneUnitMs = unitToMs(unitSel);
   const lagMs = lagToMs(lagVal, lagUnitRaw, unitSel);
-
   const ES_P = predNode?.ES || null;
   const EF_P = predNode?.EF || null;
   const ES_S = succNode?.ES || null;
   const EF_S = succNode?.EF || null;
-
   let base = null, target = null;
-  switch ((relType || "FS").toUpperCase()) {
-    case "SS": base = ES_P; target = ES_S; break;
-    case "FF": base = EF_P; target = EF_S; break;
-    case "SF": base = ES_P; target = EF_S; break;
-    case "FS":
+  switch ((relType || 'FS').toUpperCase()) {
+    case 'SS': base = ES_P; target = ES_S; break;
+    case 'FF': base = EF_P; target = EF_S; break;
+    case 'SF': base = ES_P; target = EF_S; break;
+    case 'FS':
     default:   base = EF_P; target = ES_S; break;
   }
-
   if (!base || !target) return { ffUnits: 0, ms: 0, missingDates: true };
-
   const ms = target.getTime() - (base.getTime() + lagMs);
-  return { ffUnits: ms / oneUnitMs, ms, missingDates: false };
+  const ffUnits = ms / oneUnitMs;
+  console.log(`FF between ${predNode?.id} -> ${succNode?.id} [${relType}] = ${ffUnits}`);
+  return { ffUnits, ms, missingDates: false };
+}
 }
 
 /* =============================== Full-Depth DFS =============================== */
@@ -431,12 +430,6 @@ runBtn.addEventListener("click", () => {
       const rows = parseCSV(text, ",");
       const csvObj = rowsToObjects(rows);
       const model = buildModel(csvObj, { dateLocale: localeSel });
-log(`Model built with ${model.nodes.size} nodes.`);
-if (model.predMap.has(startId)) {
-  log(`Predecessors found for '${startId}': ${model.predMap.get(startId).map(r => r.predId).join(', ')}`);
-} else {
-  log(`No predecessors linked for '${startId}'. Check formatting and column names.`);
-}
 
       if (!model.nodes.has(startId)) {
         log(`Starting Activity ID "${startId}" not found. Check exact ID and case.`);
