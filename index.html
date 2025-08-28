@@ -315,19 +315,25 @@ function enumeratePaths(model, startId, unitSel, maxPaths = 1000000) {
 
     const queue = [{ path: [startId], score: 0 }];
     const topPaths = [];
+    const visited = new Set();
 
     while (queue.length > 0 && topPaths.length < maxPaths) {
         const current = queue.shift();
         const currId = current.path[current.path.length - 1];
-        const preds = predMap.get(currId) || [];
+        const currNode = nodes.get(currId);
 
-        if (preds.length === 0) {
-            // Leaf node reached
+        // Stop tracing if activity status is 'completed'
+        if (currNode && currNode.status && currNode.status.toLowerCase() === 'completed') {
             insertPath(topPaths, current);
             continue;
         }
 
-        // Sort predecessors by smallest free float
+        const preds = predMap.get(currId) || [];
+        if (preds.length === 0) {
+            insertPath(topPaths, current);
+            continue;
+        }
+
         const sortedPreds = preds.map(rel => {
             const predNode = nodes.get(rel.predId);
             const succNode = nodes.get(currId);
@@ -336,6 +342,8 @@ function enumeratePaths(model, startId, unitSel, maxPaths = 1000000) {
         }).sort((a, b) => a.ffUnits - b.ffUnits);
 
         for (const rel of sortedPreds) {
+            if (visited.has(rel.predId)) continue;
+            visited.add(rel.predId);
             const newPath = [...current.path, rel.predId];
             const newScore = current.score + rel.ffUnits;
             queue.push({ path: newPath, score: newScore });
