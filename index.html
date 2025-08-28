@@ -283,6 +283,7 @@ function lagToMs(lagVal, lagUnitRaw, unitSel) {
     default:  return lagVal * unitToMs(unitSel);
   }
 }
+
 function edgeFreeFloat(predNode, succNode, relType, lagVal, lagUnitRaw, unitSel) {
   const oneUnitMs = unitToMs(unitSel);
   const lagMs = lagToMs(lagVal, lagUnitRaw, unitSel);
@@ -298,12 +299,21 @@ function edgeFreeFloat(predNode, succNode, relType, lagVal, lagUnitRaw, unitSel)
     case 'FS':
     default:   base = EF_P; target = ES_S; break;
   }
-  if (!base || !target) return { ffUnits: 0, ms: 0, missingDates: true };
+  if (!base || !target || isNaN(base.getTime()) || isNaN(target.getTime())) {
+    console.warn(`Missing or invalid dates for ${predNode?.id} -> ${succNode?.id}`);
+    return { ffUnits: Infinity, ms: Infinity, missingDates: true };
+  }
   const ms = target.getTime() - (base.getTime() + lagMs);
   const ffUnits = ms / oneUnitMs;
-  console.log(`FF between ${predNode?.id} -> ${succNode?.id} [${relType}] = ${ffUnits}`);
+  console.log(`FF between ${predNode?.id} -> ${succNode?.id} [${relType}] = ${ffUnits.toFixed(2)} ${unitSel}`);
   return { ffUnits, ms, missingDates: false };
 }
+
+
+  if (!base || !target) return { ffUnits: 0, ms: 0, missingDates: true };
+
+  const ms = target.getTime() - (base.getTime() + lagMs);
+  return { ffUnits: ms / oneUnitMs, ms, missingDates: false };
 }
 
 /* =============================== Full-Depth DFS =============================== */
