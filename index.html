@@ -308,60 +308,62 @@ function edgeFreeFloat(predNode, succNode, relType, lagVal, lagUnitRaw, unitSel)
 }
 
 /* =============================== Full-Depth DFS =============================== */
-
 function enumeratePaths(model, startId, unitSel, maxPaths = 1000000) {
-    const { nodes, predMap } = model;
-    if (!nodes.has(startId)) throw new Error(`Starting Activity ID "${startId}" not found in file.`);
+  const { nodes, predMap } = model;
+  if (!nodes.has(startId)) throw new Error(`Starting Activity ID "${startId}" not found in file.`);
 
-    const queue = [{ path: [startId], score: 0 }];
-    const topPaths = [];
-    const visited = new Set();
+  const results = [];                     // { nodes: [ids], edges: [...], score }
+  const nodesOnPath = [startId];          // Start with activity of interest
+  const edgesOnPath = [];                 // per-edge info aligned with transitions
+  const onStack = new Set([startId]);     // cycle detection
 
-    while (queue.length > 0 && topPaths.length < maxPaths) {
-        const current = queue.shift();
-        const currId = current.path[current.path.length - 1];
-        const currNode = nodes.get(currId);
+  function dfs(currSuccId) {
+    if (results.length >= maxPaths) return;
 
-        if (!currNode || !Array.isArray(current.path)) continue;
-
-        // Stop tracing if activity status is 'completed'
-        if (currNode.status && currNode.status.toLowerCase() === 'completed') {
-            insertPath(topPaths, current);
-            continue;
-        }
-
-        const preds = predMap.get(currId) || [];
-        if (preds.length === 0) {
-            insertPath(topPaths, current);
-            continue;
-        }
-
-        const sortedPreds = preds.map(rel => {
-            const predNode = nodes.get(rel.predId);
-            const succNode = nodes.get(currId);
-            const ff = edgeFreeFloat(predNode, succNode, rel.type, rel.lagVal, rel.lagUnitRaw, unitSel);
-            return { ...rel, ffUnits: ff.ffUnits };
-        }).sort((a, b) => a.ffUnits - b.ffUnits);
-
-        for (const rel of sortedPreds) {
-            if (visited.has(rel.predId)) continue;
-            visited.add(rel.predId);
-            const newPath = [...current.path, rel.predId];
-            const newScore = current.score + rel.ffUnits;
-            queue.push({ path: newPath, score: newScore });
-        }
+    const preds = predMap.get(currSuccId) || [];
+    if (preds.length === 0) {
+      // Leaf reached — finalize
+      const score = edgesOnPath.reduce((acc, e) => acc + (Number(e.ffUnits) || 0), 0);
+      results.push({ nodes: [...nodesOnPath], edges: [...edgesOnPath], score });
+      return;
     }
 
-    return topPaths;
+    for (const rel of preds) {
+      const predId = norm(rel.predId);
+      const type = (rel.type || "FS").toUpperCase();
+      const predNode = nodes.get(predId) || null;
+      const succNode = nodes.get(currSuccId) || null;
+      const ff = edgeFreeFloat(predNode, succNode, type, rel.lagVal || 0, rel.lagUnitRaw || null, unitSel);
 
-    function insertPath(paths, newEntry) {
-        if (!Array.isArray(newEntry.path)) return;
-        paths.push(newEntry);
-        paths.sort((a, b) => a.score - b.score);
-        if (paths.length > 10) paths.pop();
+      edgesOnPath.push({
+        succId: currSuccId, predId, type,
+        lagVal: rel.lagVal || 0, lagUnitRaw: rel.lagUnitRaw || null,
+        ffUnits: ff.ffUnits, flags: { missingDates: ff.missingDates, unknownPred: !predNode }
+      });
+      nodesOnPath.push(predId);
+
+      if (onStack.has(predId)) {
+        // Cycle: record partial and do not recurse deeper
+        const score = edgesOnPath.reduce((acc, e) => acc + (Number(e.ffUnits) || 0), 0);
+        results.push({ nodes: [...nodesOnPath, "(cycle)"], edges: [...edgesOnPath], score, cycle: true });
+      } else {
+        onStack.add(predId);
+        dfs(predId);
+        onStack.delete(predId);
+      }
+
+      nodesOnPath.pop();
+      edgesOnPath.pop();
+
+      if (results.length >= maxPaths) break;
     }
+  }
+
+  dfs(startId);
+  return results;
 }
 
+/* ============================ Ranking & Export ============================ */
 function rankPathsByFF(paths) {
   return paths
     .map((p, idx) => ({ ...p, idx }))
@@ -429,6 +431,12 @@ runBtn.addEventListener("click", () => {
       const rows = parseCSV(text, ",");
       const csvObj = rowsToObjects(rows);
       const model = buildModel(csvObj, { dateLocale: localeSel });
+log(`Model built with ${model.nodes.size} nodes.`);
+if (model.predMap.has(startId)) {
+  log(`Predecessors found for '${startId}': ${model.predMap.get(startId).map(r => r.predId).join(', ')}`);
+} else {
+  log(`No predecessors linked for '${startId}'. Check formatting and column names.`);
+}
 
       if (!model.nodes.has(startId)) {
         log(`Starting Activity ID "${startId}" not found. Check exact ID and case.`);
