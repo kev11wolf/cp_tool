@@ -322,8 +322,10 @@ function enumeratePaths(model, startId, unitSel, maxPaths = 1000000) {
         const currId = current.path[current.path.length - 1];
         const currNode = nodes.get(currId);
 
+        if (!currNode || !Array.isArray(current.path)) continue;
+
         // Stop tracing if activity status is 'completed'
-        if (currNode && currNode.status && currNode.status.toLowerCase() === 'completed') {
+        if (currNode.status && currNode.status.toLowerCase() === 'completed') {
             insertPath(topPaths, current);
             continue;
         }
@@ -353,6 +355,7 @@ function enumeratePaths(model, startId, unitSel, maxPaths = 1000000) {
     return topPaths;
 
     function insertPath(paths, newEntry) {
+        if (!Array.isArray(newEntry.path)) return;
         paths.push(newEntry);
         paths.sort((a, b) => a.score - b.score);
         if (paths.length > 10) paths.pop();
