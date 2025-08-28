@@ -1,633 +1,314 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>P6 XLSX Backward Tracer (Large Datasets) - Lite Mode</title>
+  <meta charset="utf-8" />
+  <title>P6 XLSX Backward Tracer (Large Datasets) – Integrated</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* Sexy neutral theme with drop shadows */
-    :root {
-      --bg: #f6f7f9;
-      --card: #ffffff;
-      --card2: #ffffff;
-      --text: #1e293b;
-      --muted: #64748b;
-      --accent: #374151;
-      --accent2: #4b5563;
-      --shadow: 0 8px 24px rgba(0,0,0,.08);
-      --radius: 14px;
-      --green: #10b981;
-      --red: #ef4444;
-      --blue: #3b82f6;
-    }
-
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system;
-      background: linear-gradient(135deg, #f6f7fb 0%, #eef1f7 100%);
-      color: var(--text);
-      margin: 0;
-      padding: 28px;
-    }
-
-    h1 { font-size: 1.6rem; margin: 0 0 8px; color: var(--accent); text-shadow: 0 1px 0 #fff; }
-    .section {
-      margin-bottom: 20px;
-      padding: 16px;
-      border-radius: var(--radius);
-      background: white;
-      box-shadow: var(--shadow);
-      border: 1px solid #eef2f7;
-    }
-    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-    input[type="file"] { padding: 8px; }
-    select, button, input[type="text"] { padding: 9px 12px; font-size: 14px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; }
-    button { cursor: pointer; background: linear-gradient(#4f46e5, #4338ca); color: #fff; border: none; padding: 10px 14px; border-radius: 8px; box-shadow: 0 4px 10px rgba(67, 56, 202, .3); }
-    button.secondary { background: linear-gradient(#64748b, #475569); }
-    .hidden { display: none; }
-
-    /* Tables + layout polish */
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-    th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; font-family: inherit; }
-    th { background: #f3f4f6; font-weight: 600; color: #374151; }
-    #colMap { list-style: none; padding-left: 0; margin: 0; }
-    #colMap li { margin: 4px 0; font-family: ui-monospace,SFMono-Regular,Monaco,Consolas,"Liberation Mono"; font-size: 12px; }
-
-    /* Progress indicator styling */
-    .progress {
-      display: inline-block;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(0,0,0,.04);
-      color: #0f172a;
-      min-width: 140px;
-      text-align: center;
-    }
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: #e5e7eb;
-      color: #374151;
-      font-size: 12px;
-      margin-left: 8px;
-    }
-
-    /* Toast / modal */
-    .overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,.4);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 999;
-    }
-    .modal {
-      background: white; padding: 20px; border-radius: 12px;
-      box-shadow: 0 20px 40px rgba(0,0,0,.25);
-      width: min(520px, 92vw);
-      text-align: center;
-    }
-    .modal h2 { margin-top: 0; color: #374151; }
-    .modal p { color: #374151; }
-    .modal .buttons { margin-top: 14px; display:flex; justify-content:center; gap: 8px; }
-    .modal .ok { background: var(--green); }
-    .modal .close { background: #64748b; }
-
-    /* Responsive tweaks */
-    @media (max-width: 800px) {
-      .row { gap: 8px; }
-      table, .section { width: 100%; }
-    }
-    /* Small helper to visually separate sections */
-    .sep { height: 1px; background: #eef2f7; margin: 12px 0; border: 0; }
+    :root { --bg: #fff; --ink: #111; --muted:#555; --card:#f9f9f9; }
+    body { font-family: Arial, sans-serif; margin:0; padding:0; background: var(--bg); color: var(--ink); }
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .panel { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(0,0,0,.04); }
+    h1 { font-size: 1.4rem; margin: 0 0 8px; }
+    label { font-weight: 600; display: block; margin: 8px 0 6px; }
+    input[type="text"], input[type="file"] { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+    button { padding: 10px 14px; border: none; border-radius: 6px; cursor: pointer; }
+    .btn { background: #007bff; color: #fff; }
+    .btn.secondary { background: #6c757d; }
+    .btn[disabled] { opacity: .5; cursor: not-allowed; }
+    #results { margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+    th { background: #f6f6f6; }
+    #log { margin-top: 8px; height: 140px; overflow: auto; background: #f7f7f7; border: 1px solid #ddd; padding: 8px; font-family: monospace; white-space: pre-wrap; }
+    .hint { color: var(--muted); font-size: .88em; }
   </style>
 </head>
 <body>
-  <h1>P6 XLSX Backward Tracer (Large Datasets) - Lite Mode</h1>
+  <div class="container">
+    <h1>P6 XLSX Backward Tracer (Large Datasets) - Integrated</h1>
 
-  <!-- Intro / File load -->
-  <div class="section" id="introSection">
-    <p>
-      Upload a single Excel export (xlsx) from P6. The script auto-detects columns by header names and computes backward critical paths.
-      Large datasets (e.g., ~25k rows) are handled with a live progress indicator. Use the Lite Mode toggle to reduce memory usage.
-    </p>
-
-    <div class="row">
-      <input type="file" id="xlsxInput" accept=".xlsx,.xls" />
-      <button id="loadBtn" disabled>Load and Parse</button>
-      <span id="progress" class="progress hidden" aria-live="polite">Idle</span>
-      <label style="margin-left:auto; display:flex; align-items:center; gap:6px;">
-        <input type="checkbox" id="liteMode" />
-        Lite mode (load essential columns only)
-      </label>
-    </div>
-  </div>
-
-  <!-- Mapping + Start section -->
-  <div class="section hidden" id="mappingSection" aria-label="Mapping section">
-    <hr class="sep" aria-hidden="true" />
-    <div class="sectionTitle" style="font-weight:700; margin-bottom:6px;">Detected Columns</div>
-    <ul id="colMap" style="margin:0 0 8px 0;"></ul>
-
-    <div class="sectionTitle" style="margin-top:6px;">Start Activity</div>
-    <div class="row" style="align-items:center;">
-      <select id="startActivity" aria-label="Start activity dropdown"></select>
-      <div style="margin-left:8px;">
-        <label for="manualStart" style="margin-right:6px;">Or manual Start ID:</label>
-        <input type="text" id="manualStart" placeholder="e.g. dpfg8620" />
-        <button id="applyManualStart" class="secondary" title="Use manual Start ID for tracing">Use Start ID</button>
+    <!-- File Upload -->
+    <div class="panel">
+      <label for="fileInput">Upload Excel file (xlsx, xls, xlsm):</label>
+      <input id="fileInput" type="file" accept=".xlsx,.xls,.xlsm" />
+      <div class="hint" style="margin-top:6px;">
+        Supports large datasets via in-memory batching inspiration. Uses SheetJS (XLSX).
       </div>
-      <span class="badge" id="elapsedBadge" aria-live="polite" title="Elapsed time since parsing started">Elapsed: 0s</span>
     </div>
 
-    <div class="row" style="margin-top:8px;">
-      <button id="traceBtn" style="margin-right:8px;">Trace Backward Paths</button>
-      <button id="exportBtn" class="secondary" disabled>Export Top 10 as CSV</button>
+    <!-- Controls -->
+    <div class="panel row" style="align-items: end;">
+      <div>
+        <label for="startActivity">Start Activity ID (Backward Trace)</label>
+        <input id="startActivity" type="text" placeholder="e.g., A-Start" />
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" id="runBtn" disabled>Run Backward Trace</button>
+        <button class="btn secondary" id="exportBtn" disabled>Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="panel" id="resultsPanel">
+      <h3 style="margin:0 0 8px;">Results (Top Paths)</h3>
+      <div id="results" style="min-height:60px;"></div>
+    </div>
+
+    <!-- Log -->
+    <div class="panel">
+      <h3 style="margin:0 0 8px;">Log</h3>
+      <div id="log"></div>
     </div>
   </div>
 
-  <!-- Results -->
-  <div class="section hidden" id="resultsSection" aria-label="Results section">
-    <div class="sectionTitle" style="font-weight:700;">Top 10 Backward Critical Paths</div>
-    <table id="resultsTable" aria-label="Top 10 backward paths">
-      <thead>
-        <tr>
-          <th>Path Score (lower = more critical)</th>
-          <th>Path IDs</th>
-          <th>Path Names</th>
-          <th>Node Count</th>
-        </tr>
-      </thead>
-      <tbody id="resultsBody"></tbody>
-    </table>
-  </div>
-
-  <!-- SheetJS -->
+  <!-- Load SheetJS (XLSX) from CDN -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
 
   <script>
-    /*
-      High-level flow:
-      1) User loads an XLSX. Data is parsed in batches to keep UI responsive.
-      2) Headers are detected robustly; essential columns mapped (activity id, duration, total float, preds, name).
-      3) Start IDs are populated from the dataset; a manual Start ID can override.
-      4) Compute backward paths and score them by total float; show top 10.
-      5) Optionally export results as CSV.
-      6) Lite mode reduces memory by loading only essential columns during parsing.
-      7) Time elapsed timer tracks total processing duration.
-      8) Popup notifies user when analysis is complete.
-    */
+    (function() {
+      // DOM references
+      const fileInput = document.getElementById('fileInput');
+      const runBtn = document.getElementById('runBtn');
+      const exportBtn = document.getElementById('exportBtn');
+      const startActivityInput = document.getElementById('startActivity');
+      const resultsDiv = document.getElementById('results');
+      const logDiv = document.getElementById('log');
+      const resultsPanel = document.getElementById('resultsPanel');
 
-    // Helpers
-    const normalizeHeader = (h) => (h || "").toString().trim().toLowerCase();
+      // State
+      let workbookData = [];  // array of row objects from sheet_to_json
+      let headers = [];         // detected headers (column names)
+      let graph = {};             // id -> preds array
+      let paths = [];             // array of paths (each path is array of ids)
 
-    // Global data
-    let rows = [];               // all row objects
-    let headerMap = {};            // canonical alias -> actual header name
-    let activityIdCol = null;       // key in row objects
-    let durationCol = null;
-    let totalFloatCol = null;
-    let predCol = null;
-    let nameCol = null;
-
-    // UI refs
-    const xlsxInput = document.getElementById('xlsxInput');
-    const loadBtn = document.getElementById('loadBtn');
-    const progressEl = document.getElementById('progress');
-    const liteModeCheckbox = document.getElementById('liteMode');
-    const mappingSection = document.getElementById('mappingSection');
-    const colMap = document.getElementById('colMap');
-    const startSelect = document.getElementById('startActivity');
-    const manualStart = document.getElementById('manualStart');
-    const applyManualStart = document.getElementById('applyManualStart');
-    const traceBtn = document.getElementById('traceBtn');
-    const exportBtn = document.getElementById('exportBtn');
-    const resultsSection = document.getElementById('resultsSection');
-    const resultsBody = document.getElementById('resultsBody');
-    const elapsedBadge = document.getElementById('elapsedBadge');
-    const liteMode = document.getElementById('liteMode');
-
-    const FINAL_ANCHOR = "dpfg8620";
-
-    // Timer state
-    let timerStart = null;
-    let timerInterval = null;
-
-    // Progress state
-    let totalRows = 0;
-    let parsedRows = 0;
-    let lastProgressPct = -1;
-    let lastExportResults = null;
-
-    // Event: file input
-    xlsxInput.addEventListener('change', () => {
-      loadBtn.disabled = !xlsxInput.files.length;
-    });
-
-    // Start the elapsed timer
-    function startTimer() {
-      timerStart = performance.now();
-      elapsedBadge.textContent = "Elapsed: 0s";
-      if (timerInterval) clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
-        const ms = performance.now() - timerStart;
-        const secs = Math.floor(ms / 1000);
-        elapsedBadge.textContent = `Elapsed: ${secs}s`;
-      }, 1000);
-    }
-
-    // Stop the elapsed timer
-    function stopTimer() {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
-      // Final update
-      if (timerStart != null) {
-        const ms = performance.now() - timerStart;
-        const secs = Math.floor(ms / 1000);
-        elapsedBadge.textContent = `Elapsed: ${secs}s (done)`;
-      }
-    }
-
-    // Event: Load button
-    loadBtn.addEventListener('click', async () => {
-      if (!xlsxInput.files?.length) return;
-      const file = xlsxInput.files[0];
-
-      try {
-        resetUIForParse();
-        progressEl.classList.remove('hidden');
-        progressEl.textContent = 'Reading workbook...';
-        startTimer(); // begin timing the entire parse/trace operation
-
-        const lite = liteMode.checked;
-        const wb = await readWorkbook(file);
-
-        // Initialize parsing
-        const sheetName = Object.keys(wb.Sheets)[0];
-        const sheet = wb.Sheets[sheetName];
-        const parsed = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-        totalRows = parsed.length;
-        rows = [];
-
-        // Batch processing to keep UI responsive
-        const BATCH = lite ? 8000 : 2000;
-        let idx = 0;
-
-        const processBatch = () => {
-          const end = Math.min(idx + BATCH, totalRows);
-          for (; idx < end; idx++) {
-            const r = parsed[idx];
-            rows.push(r);
-          }
-          parsedRows = rows.length;
-          const pct = Math.floor((parsedRows / totalRows) * 100);
-          if (pct !== lastProgressPct) {
-            progressEl.textContent = `Parsing: ${pct}% (${parsedRows}/${totalRows})`;
-            lastProgressPct = pct;
-          }
-          if (idx < totalRows) {
-            requestAnimationFrame(processBatch);
-          } else {
-            // All rows parsed
-            progressEl.textContent = 'Detecting headers...';
-            detectHeadersAndMap(rows, lite);
-            populateStartDropdown();
-            mappingSection.style.display = 'block';
-            resultsSection.style.display = 'none';
-            exportBtn.disabled = true;
-            progressEl.classList.add('hidden');
-            stopTimer(); // stop timing after parse phase
-            // Start a separate timer for the full analysis duration if needed
-            // Then show the completion popup after trace is run (handled in trace path)
-          }
-        };
-
-        processBatch();
-      } catch (err) {
-        progressEl.classList.add('hidden');
-        alert('Error parsing file: ' + err.message);
-      }
-    });
-
-    // Trace path button
-    traceBtn.addEventListener('click', () => {
-      const manual = (manualStart.value || "").trim();
-      const chosenFromDropdown = startSelect.value;
-      const startId = manual || chosenFromDropdown;
-      if (!startId) {
-        alert('Please specify a Start Activity ID (via dropdown or manual input).');
-        return;
+      // Logging helper
+      function log(msg) {
+        const t = new Date().toISOString();
+        logDiv.textContent += `[${t}] ${msg}\n`;
+        logDiv.scrollTop = logDiv.scrollHeight;
       }
 
-      // Re-run path computation (could be cached; for simplicity recompute)
-      const prep = computePaths(rows, headerMap);
-      const { paths, activities, graphP, graphS } = prep;
-      if (!paths || paths.length === 0) {
-        alert('No backward paths found from the chosen start.');
-        return;
+      // Utility: clear results
+      function clearResults() {
+        resultsDiv.innerHTML = '';
+        resultsPanel.style.display = 'block';
+        paths = [];
+        graph = {};
+        workbookData = [];
+        headers = [];
       }
 
-      // Run trace and display
-      const results = traceFrom(startId, paths, activities, graphP, graphS);
-      displayResults(results);
-      exportBtn.disabled = !(results && results.length > 0);
-      lastExportResults = results;
-
-      // Notify user that analysis is ready (popup)
-      if (results && results.length > 0) {
-        showCompletionPopup();
-      }
-    });
-
-    // Export CSV
-    exportBtn.addEventListener('click', () => {
-      const rowsEl = resultsBody.querySelectorAll('tr');
-      if (!rowsEl || rowsEl.length === 0) {
-        alert('No results to export.');
-        return;
-      }
-      const header = ['Path Score','Path IDs','Path Names','Node Count'];
-      const csvRows = [header];
-      rowsEl.forEach(tr => {
-        const tds = tr.querySelectorAll('td');
-        csvRows.push([
-          tds[0]?.innerText,
-          tds[1]?.innerText,
-          tds[2]?.innerText,
-          tds[3]?.innerText
-        ]);
-      });
-      const csvContent = csvRows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Top10_Backward_Critical_Paths.csv';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    });
-
-    // Manual Start button
-    applyManualStart.addEventListener('click', () => {
-      if (manualStart.value.trim()) {
-        alert('Manual Start ID set. Press "Trace Backward Paths" to run.');
-      } else {
-        alert('Enter a Start Activity ID in the text field first.');
-      }
-    });
-
-    // Helpers
-
-    // Read workbook via FileReader
-    function readWorkbook(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          const data = new Uint8Array(e.target.result);
-          const wb = XLSX.read(data, { type: 'array' });
-          resolve(wb);
-        };
-        reader.onerror = () => reject(new Error('Failed to read file.'));
-        reader.readAsArrayBuffer(file);
-      });
-    }
-
-    // Reset UI for fresh parse
-    function resetUIForParse() {
-      rows = [];
-      totalRows = 0;
-      parsedRows = 0;
-      lastProgressPct = -1;
-      headerMap = {};
-      activityIdCol = null; durationCol = null;
-      totalFloatCol = null; predCol = null; nameCol = null;
-
-      mappingSection.style.display = 'none';
-      resultsSection.style.display = 'none';
-      resultsBody.innerHTML = '';
-      colMap.innerHTML = '';
-      startSelect.innerHTML = '';
-      manualStart.value = '';
-      exportBtn.disabled = true;
-      progressEl.textContent = 'Idle';
-    }
-
-    // Header detection and mapping (permissive, supports lite mode)
-    function detectHeadersAndMap(rowsInput, lite) {
-      const first = rowsInput[0] || {};
-      const headers = Object.keys(first);
-      const normToActual = {};
-      headers.forEach(h => { normToActual[normalizeHeader(h)] = h; });
-
-      function findCol(variants) {
-        for (const v of variants) {
-          const key = normalizeHeader(v);
-          if (normToActual[key] !== undefined) return normToActual[key];
+      // Guard: ensure XLSX is loaded
+      function ensureXLSXLoaded() {
+        if (typeof XLSX === 'undefined') {
+          log('Error: XLSX library is not loaded. Check network or CSP.');
+          alert('XLSX library did not load. Check network or CSP settings.');
+          return false;
         }
-        return null;
+        return true;
       }
 
-      activityIdCol = findCol(['Activity ID','Activity_Id','Task ID','WBS']);
-      durationCol = findCol(['At Completion Duration','Duration','Duration (hrs)']);
-      totalFloatCol = findCol(['Total Float','Total_Float','Float','Float Time']);
-      predCol = findCol(['Predecessors','Predecessor Details','Predecessor_Details']);
-      nameCol = findCol(['Activity Name','Task Name','Name']) || activityIdCol;
-
-      headerMap = {
-        'Activity ID': activityIdCol,
-        'At Completion Duration': durationCol,
-        'Total Float': totalFloatCol,
-        'Predecessors': predCol,
-        'Activity Name': nameCol
-      };
-
-      // Render detected mapping
-      colMap.innerHTML = '';
-      Object.entries(headerMap).forEach(([key, val]) => {
-        const li = document.createElement('li');
-        li.textContent = `${key}: ${val || '(not found)'}`;
-        colMap.appendChild(li);
-      });
-    }
-
-    // Populate start dropdown from IDs
-    function populateStartDropdown() {
-      startSelect.innerHTML = '';
-      const ids = new Set(rows.map(r => r[activityIdCol]).filter(Boolean));
-      ids.forEach(id => {
-        const opt = document.createElement('option');
-        opt.value = id;
-        opt.text = id;
-        startSelect.appendChild(opt);
-      });
-      if (ids.has(FINAL_ANCHOR)) startSelect.value = FINAL_ANCHOR;
-    }
-
-    // Compute graphs and paths
-    function computePaths(allRows, headers) {
-      const graphP = {};
-      const graphS = {};
-
-      for (let i = 0; i < allRows.length; i++) {
-        const r = allRows[i];
-        const id = r[activityIdCol];
-        const predsRaw = (r[predCol] || "").toString().trim();
-        const predsList = predsRaw ? predsRaw.split(',').map(x => x.trim()).filter(x => x.length) : [];
-        graphP[id] = predsList;
-        predsList.forEach(p => {
-          if (!graphS[p]) graphS[p] = [];
-          graphS[p].push(id);
+      // Header detection: heuristic based on header names
+      function detectHeadersFromRows(rows) {
+        if (!rows || rows.length === 0) return [];
+        const candidate = Object.keys(rows[0] || {});
+        const likely = [
+          'id','activity','name','task','desc','description','start','finish','duration','dur','days',
+          'predecessor','pre','pred','dep','dependencies','predecessors','successor','succ','succs','dependencies'
+        ];
+        const detected = candidate.filter(c => {
+          const lc = String(c).toLowerCase();
+          return likely.some(n => lc.includes(n));
         });
+        if (detected.length === 0) return candidate.slice(0, 6);
+        return detected;
       }
 
-      // Activities meta
-      const activities = {};
-      for (let i = 0; i < allRows.length; i++) {
-        const r = allRows[i];
-        const id = r[activityIdCol];
-        if (!id) continue;
-        activities[id] = {
-          id,
-          name: r[nameCol] || id,
-          duration: parseFloat(r[durationCol] || 0) || 0,
-          totalFloat: parseFloat(r[totalFloatCol] || 0) || 0
-        };
+      // Graph construction: map each row to its predecessors
+      // We consider columns that include 'pred' or 'dependencies' as sources of preds
+      function buildGraph(rows, hdrs) {
+        const g = {};
+        const idCol = hdrs.find(h => String(h).toLowerCase().includes('id')) || 'ID';
+        const predCols = hdrs.filter(h => String(h).toLowerCase().includes('pred') || String(h).toLowerCase().includes('dependencies'));
+        rows.forEach(r => {
+          const id = r[idCol] ?? r['ID'] ?? r['Id'] ?? '';
+          let preds = [];
+          predCols.forEach(pc => {
+            const val = r[pc];
+            if (val) {
+              preds = preds.concat(String(val).split(/[;,|]+/).map(s => s.trim()).filter(Boolean));
+            }
+          });
+          // Trim duplicates
+          preds = Array.from(new Set(preds));
+          g[id] = preds;
+        });
+        return g;
       }
 
-      const paths = findBackwardPaths(FINAL_ANCHOR, graphP);
-      return { paths, activities, graphP, graphS };
-    }
-
-    // Iterative DFS to collect backward paths ending at finalNode
-    function findBackwardPaths(finalNode, graph) {
-      const paths = [];
-      const stack = [[finalNode, [finalNode]]];
-      while (stack.length) {
-        const [node, path] = stack.pop();
-        const preds = graph[node] || [];
-        if (preds.length === 0) {
-          paths.push(path.slice());
-          continue;
+      // Backward path tracing: DFS from startId to accumulate paths
+      function traceBackward(graph, startId, maxDepth = 2000) {
+        const results = [];
+        const stack = [[startId, [startId]]];
+        while (stack.length) {
+          const [node, path] = stack.pop();
+          const preds = graph[node] || [];
+          if (!preds.length || path.length > maxDepth) {
+            results.push(path);
+            continue;
+          }
+          preds.forEach(p => stack.push([p, path.concat(p)]));
         }
-        for (const p of preds) {
-          if (path.includes(p)) continue;
-          stack.push([p, path.concat(p)]);
-        }
+        results.sort((a, b) => b.length - a.length);
+        return results;
       }
-      // Reverse each path to start->end order
-      return paths.map(p => p.slice().reverse());
-    }
 
-    // Trace paths from a start id
-    function traceFrom(startId, paths, activities, graphP, graphS) {
-      const tFloat = {};
-      Object.values(activities).forEach(a => { tFloat[a.id] = a.totalFloat || 0; });
-
-      const valid = paths.filter(p => p.includes(startId));
-      const scored = valid.map(path => {
-        const score = path.reduce((acc, nid) => acc + (tFloat[nid] || 0), 0);
-        const pathIds = path.join(' -> ');
-        const pathNames = path.map(nid => activities[nid]?.name ?? nid).join(' -> ');
-        return { score, pathIds, pathNames, nodeCount: path.length };
-      });
-
-      scored.sort((a, b) => a.score - b.score);
-      return scored.slice(0, 10);
-    }
-
-    // Render results to table
-    function displayResults(results) {
-      resultsSection.style.display = 'block';
-      resultsBody.innerHTML = '';
-      results.forEach(r => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${r.score.toFixed(2)}</td>
-          <td>${r.pathIds}</td>
-          <td>${r.pathNames}</td>
-          <td>${r.nodeCount}</td>
-        `;
-        resultsBody.appendChild(tr);
-      });
-      // After rendering results, show completion popup
-      showCompletionPopup();
-    }
-
-    // Popup: show completion notice
-    function showCompletionPopup() {
-      // Create modal overlay if not present
-      if (document.getElementById('completionOverlay')) return;
-      const overlay = document.createElement('div');
-      overlay.id = 'completionOverlay';
-      overlay.className = 'overlay';
-      const modal = document.createElement('div');
-      modal.className = 'modal';
-      modal.innerHTML = `
-        <h2>Analysis Complete</h2>
-        <p>The backward critical path analysis is ready for review. You can review the results below or export them as CSV.</p>
-      `;
-      const btns = document.createElement('div');
-      btns.className = 'buttons';
-      const ok = document.createElement('button');
-      ok.className = 'ok';
-      ok.textContent = 'Got it';
-      ok.addEventListener('click', () => {
-        document.body.removeChild(overlay);
-      });
-      const review = document.createElement('button');
-      review.textContent = 'Review in-page';
-      review.addEventListener('click', () => {
-        document.body.removeChild(overlay);
-        // Focus results section
-        if (resultsSection && resultsSection.style.display !== 'block') {
-          resultsSection.style.display = 'block';
+      // CSV export: paths as rows with steps
+      function pathsToCSV(paths) {
+        const maxLen = paths.reduce((m, p) => Math.max(m, p.length), 0);
+        const lines = [];
+        lines.push(Array.from({ length: maxLen }).map((_, i) => `Step_${i+1}`).join(','));
+        for (const p of paths) {
+          const row = Array.from({ length: maxLen }).map((_, i) => p[i] ?? '');
+          lines.push(row.join(','));
         }
-        const firstRow = resultsBody.querySelector('tr');
-        if (firstRow) firstRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-      btns.appendChild(review);
-      btns.appendChild(ok);
-      modal.appendChild(btns);
-      overlay.appendChild(modal);
-      document.body.appendChild(overlay);
-    }
-
-    // Event: Manual Start button
-    applyManualStart.addEventListener('click', () => {
-      if (manualStart.value.trim()) {
-        alert('Manual Start ID set. Press "Trace Backward Paths" to run.');
-      } else {
-        alert('Enter a Start Activity ID in the text field first.');
+        return lines.join('\n');
       }
-    });
 
-    // Helpers
+      // File input handler
+      fileInput.addEventListener('change', async (e) => {
+        clearResults();
+        const file = e.target.files?.[0];
+        if (!file) return;
 
-    // Reset UI for fresh parse
-    function resetUIForParse() {
-      rows = [];
-      totalRows = 0;
-      parsedRows = 0;
-      lastProgressPct = -1;
-      headerMap = {};
-      activityIdCol = null; durationCol = null;
-      totalFloatCol = null; predCol = null; nameCol = null;
+        if (!ensureXLSXLoaded()) return;
 
-      mappingSection.style.display = 'none';
-      resultsSection.style.display = 'none';
-      resultsBody.innerHTML = '';
-      colMap.innerHTML = '';
-      startSelect.innerHTML = '';
-      manualStart.value = '';
-      exportBtn.disabled = true;
-      progressEl.textContent = 'Idle';
-      // Reset timer display
-      elapsedBadge.textContent = 'Elapsed: 0s';
-    }
+        try {
+          const data = await file.arrayBuffer();
+          log('Reading workbook with XLSX...');
+          const wb = XLSX.read(data, { type: 'array' });
+
+          // Use first sheet
+          const firstSheetName = wb.SheetNames[0];
+          const ws = wb.Sheets[firstSheetName];
+
+          // Convert to JSON
+          const json = XLSX.utils.sheet_to_json(ws, { defval: '' });
+          workbookData = json;
+
+          // Detect headers
+          if (json.length > 0) {
+            headers = detectHeadersFromRows(json);
+          } else {
+            headers = Object.keys(json[0] ?? {});
+          }
+
+          log(`Parsed rows: ${json.length}. Detected headers: ${headers.join(', ') || '(none)'}`);
+          runBtn.disabled = false;
+          exportBtn.disabled = true;
+
+          // Optional: show a quick preview in results
+          if (json.length > 0) {
+            const preview = json.slice(0, 5);
+            const tbl = document.createElement('table');
+            const thead = document.createElement('thead');
+            const tr = document.createElement('tr');
+            (headers.length ? headers : Object.keys(preview[0] ?? {})).forEach(h => {
+              const th = document.createElement('th');
+              th.textContent = h;
+              tr.appendChild(th);
+            });
+            thead.appendChild(tr);
+            tbl.appendChild(thead);
+            const tbody = document.createElement('tbody');
+            preview.forEach(row => {
+              const trr = document.createElement('tr');
+              (headers.length ? headers : Object.keys(row)).forEach(k => {
+                const td = document.createElement('td');
+                td.textContent = row[k] ?? '';
+                trr.appendChild(td);
+              });
+              tbody.appendChild(trr);
+            });
+            tbl.appendChild(tbody);
+            resultsDiv.innerHTML = '';
+            resultsDiv.appendChild(tbl);
+          }
+        } catch (err) {
+          log(`Error while parsing workbook: ${err?.message || err}`);
+          console.error(err);
+        }
+      });
+
+      // Run button: build graph and trace
+      runBtn.addEventListener('click', () => {
+        if (!workbookData || workbookData.length === 0) {
+          log('No data loaded. Please upload a valid Excel file.');
+          return;
+        }
+        const startIdRaw = (startActivityInput.value ?? '').trim();
+        if (!startIdRaw) {
+          log('Please specify a Start Activity ID to trace backward.');
+          return;
+        }
+
+        // Build graph from data
+        const idHint = headers.find(h => String(h).toLowerCase().includes('id')) ?? 'ID';
+        const graphLocal = buildGraph(workbookData, headers);
+
+        // If startId not present, warn but proceed with available keys
+        if (!Object.values(graphLocal).some(arr => arr.includes(startIdRaw)) && !graphLocal[startIdRaw]) {
+          log(`Warning: Start Activity ID "${startIdRaw}" not found in data. Proceeding with available graph data.`);
+        }
+
+        paths = traceBackward(graphLocal, startIdRaw);
+        resultsDiv.innerHTML = '';
+
+        if (!paths.length) {
+          resultsDiv.textContent = 'No backward paths found for the given Start Activity.';
+        } else {
+          const ul = document.createElement('ul');
+          paths.forEach((p, idx) => {
+            const li = document.createElement('li');
+            li.textContent = `Path ${idx + 1}: ${p.join(' -> ')}`;
+            ul.appendChild(li);
+          });
+          resultsDiv.appendChild(ul);
+        }
+
+        exportBtn.disabled = paths.length === 0;
+        log(`Found ${paths.length} backward path(s).`);
+      });
+
+      // Export CSV
+      exportBtn.addEventListener('click', () => {
+        if (!paths || paths.length === 0) {
+          log('No paths to export.');
+          return;
+        }
+        const csv = pathsToCSV(paths);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'backward_paths.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        log('Exported backward_paths.csv');
+      });
+
+      // Initial status
+      log('Awaiting file upload. XLSX library loaded.');
+      if (typeof XLSX === 'undefined') {
+        log('Note: XLSX is not yet defined. If you see this message, the library might be blocked by CSP or still loading.');
+      }
+
+      // Optional: auto-hide zero-state areas or enhance UX with a progress indicator in large datasets
+    })();
   </script>
 </body>
 </html>
