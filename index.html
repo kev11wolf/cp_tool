@@ -1,314 +1,502 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>P6 XLSX Backward Tracer (Large Datasets) – Integrated</title>
+  <meta charset="UTF-8" />
+  <title>Critical Path Finder — Client-Side</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Tiny, dependency-free styling for clarity -->
   <style>
-    :root { --bg: #fff; --ink: #111; --muted:#555; --card:#f9f9f9; }
-    body { font-family: Arial, sans-serif; margin:0; padding:0; background: var(--bg); color: var(--ink); }
-    .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
-    .panel { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(0,0,0,.04); }
-    h1 { font-size: 1.4rem; margin: 0 0 8px; }
-    label { font-weight: 600; display: block; margin: 8px 0 6px; }
-    input[type="text"], input[type="file"] { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
-    button { padding: 10px 14px; border: none; border-radius: 6px; cursor: pointer; }
-    .btn { background: #007bff; color: #fff; }
-    .btn.secondary { background: #6c757d; }
-    .btn[disabled] { opacity: .5; cursor: not-allowed; }
-    #results { margin-top: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-    th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
-    th { background: #f6f6f6; }
-    #log { margin-top: 8px; height: 140px; overflow: auto; background: #f7f7f7; border: 1px solid #ddd; padding: 8px; font-family: monospace; white-space: pre-wrap; }
-    .hint { color: var(--muted); font-size: .88em; }
+    :root {
+      --bg: #0f1220;
+      --card: #141a2b;
+      --muted: #8b8ea9;
+      --primary: #4f8bd6;
+      --accent: #66d17a;
+      --error: #e74c3c;
+      --warn: #f1c40f;
+      --ok: #2ecc71;
+      --surface: #1b1f2b;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: Inter, system-ui, Arial, sans-serif; background: radial-gradient(circle at 20% -10%, rgba(79,139,214,.25), transparent 40%), var(--bg); color: #eef2ff; }
+    .container { max-width: 1000px; margin: 32px auto; padding: 0 16px; }
+    h1 { font-size: 1.6rem; margin: 0 0 8px; }
+    p.lead { color: var(--muted); margin-top: 0; margin-bottom: 16px; }
+    .card { background: linear-gradient(180deg, rgba(20,26,43,.95), rgba(20,26,43,.85)); border: 1px solid #2a2f4a; border-radius: 12px; padding: 16px; box-shadow: 0 8px 18px rgba(0,0,0,.25); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+    @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+    label { display: block; font-weight: 600; margin-bottom: 6px; }
+    input[type="text"], input[type="file"] {
+      width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #355; background: #0e1422; color: #e8eaff;
+      outline: none;
+    }
+    input[type="file"] { padding: 6px; }
+    button {
+      padding: 10px 14px; border-radius: 8px; border: 1px solid #2d415a; background: #2d6cdf; color: white; cursor: pointer;
+    }
+    button.secondary { background: #4e5d8b; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
+    .progress { height: 8px; background: #2a2f4a; border-radius: 6px; overflow: hidden; width: 100%; margin-top: 6px; }
+    .progress > span { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #4f8bd6, #66d17a); }
+    .note { font-size: 12px; color: var(--muted); }
+    .error { color: #ffd1d1; background: rgba(231,76,60,.15); padding: 8px 12px; border-radius: 6px; border: 1px solid #e57373; }
+    .success { color: #e9ffe9; background: rgba(46,204,113,.15); padding: 8px 12px; border-radius: 6px; border: 1px solid #2ecc71; }
+    a.download { display: inline-block; margin-top: 8px; padding: 10px 14px; background: #2ecc71; color: white; border-radius: 6px; text-decoration: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+    th, td { border-bottom: 1px solid #2a2f4a; padding: 6px 8px; text-align: left; }
+    th { background: #1f2540; font-weight: 600; }
+    .hint { font-size: 12px; color: var(--muted); }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>P6 XLSX Backward Tracer (Large Datasets) - Integrated</h1>
+<div class="container">
+  <h1>Critical Path Finder (Client-Side)</h1>
+  <p class="lead">Load a local Excel file, specify a starting Activity ID, and compute all backward critical paths by DFS through Predecessors. Each path’s free floats are summed to yield a score; the top 10 lowest-score paths are exported to a new Excel workbook, with each path on its own sheet.</p>
 
-    <!-- File Upload -->
-    <div class="panel">
-      <label for="fileInput">Upload Excel file (xlsx, xls, xlsm):</label>
-      <input id="fileInput" type="file" accept=".xlsx,.xls,.xlsm" />
-      <div class="hint" style="margin-top:6px;">
-        Supports large datasets via in-memory batching inspiration. Uses SheetJS (XLSX).
-      </div>
-    </div>
-
-    <!-- Controls -->
-    <div class="panel row" style="align-items: end;">
+  <div class="card" aria-label="Input panel">
+    <div class="grid" style="align-items: start;">
       <div>
-        <label for="startActivity">Start Activity ID (Backward Trace)</label>
-        <input id="startActivity" type="text" placeholder="e.g., A-Start" />
+        <label for="excelFile">Excel File (.xlsx)</label>
+        <input id="excelFile" type="file" accept=".xlsx, .xlsm" />
+        <div id="fileInfo" class="hint" style="margin-top:6px;">No file loaded yet.</div>
       </div>
-      <div style="display:flex; gap:8px;">
-        <button class="btn" id="runBtn" disabled>Run Backward Trace</button>
-        <button class="btn secondary" id="exportBtn" disabled>Export CSV</button>
+
+      <div>
+        <label for="startId">Starting Activity ID</label>
+        <input id="startId" type="text" placeholder="Enter Activity ID to start from" />
+        <div id="startInfo" class="hint" style="margin-top:6px;">Enter a valid Activity ID from the file.</div>
       </div>
     </div>
 
-    <!-- Results -->
-    <div class="panel" id="resultsPanel">
-      <h3 style="margin:0 0 8px;">Results (Top Paths)</h3>
-      <div id="results" style="min-height:60px;"></div>
+    <div class="row" style="margin-top: 12px;">
+      <button id="runBtn" title="Run DFS and generate top 10 paths" disabled>Run Analysis</button>
+      <button id="clearBtn" class="secondary" title="Reset all state" disabled>Reset</button>
     </div>
 
-    <!-- Log -->
-    <div class="panel">
-      <h3 style="margin:0 0 8px;">Log</h3>
-      <div id="log"></div>
+    <div id="status" class="hint" style="margin-top: 8px; min-height: 20px;"></div>
+    <div class="progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" role="progressbar" id="progressBar" style="margin-top:6px;">
+      <span style="width:0%"></span>
     </div>
+
+    <div id="downloadArea" style="margin-top: 12px;"></div>
   </div>
 
-  <!-- Load SheetJS (XLSX) from CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
+  <div class="card" style="margin-top: 16px;">
+    <strong>Notes</strong>
+    <ul class="hint" style="margin: 8px 0 0 18px;">
+      <li>All processing is performed in the browser; no data leaves your device.</li>
+      <li>DFS traverses predecessors only; cycles are detected and handled gracefully to avoid infinite loops.</li>
+      <li>Top 10 paths are exported to a single workbook with separate sheets Path_1, Path_2, ...</li>
+      <li>If fewer than 10 paths exist, all valid paths are exported.</li>
+    </ul>
+  </div>
+</div>
 
-  <script>
-    (function() {
-      // DOM references
-      const fileInput = document.getElementById('fileInput');
-      const runBtn = document.getElementById('runBtn');
-      const exportBtn = document.getElementById('exportBtn');
-      const startActivityInput = document.getElementById('startActivity');
-      const resultsDiv = document.getElementById('results');
-      const logDiv = document.getElementById('log');
-      const resultsPanel = document.getElementById('resultsPanel');
+<!-- Tiny, self-contained JS; relies on SheetJS (https://cdnjs.cloudflare.com) to parse/write Excel files -->
+<script>
+  // Data state
+  let workbookRaw = null;        // loaded workbook object (SheetJS workbook)
+  let activitiesMap = new Map(); // Activity ID -> activity record object
+  let allPaths = [];              // array of paths: { path: [activity objects], score: number }
 
-      // State
-      let workbookData = [];  // array of row objects from sheet_to_json
-      let headers = [];         // detected headers (column names)
-      let graph = {};             // id -> preds array
-      let paths = [];             // array of paths (each path is array of ids)
+  const excelInput = document.getElementById('excelFile');
+  const startInput = document.getElementById('startId');
+  const runBtn = document.getElementById('runBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const fileInfo = document.getElementById('fileInfo');
+  const startInfo = document.getElementById('startInfo');
+  const statusEl = document.getElementById('status');
+  const progressBar = document.getElementById('progressBar');
+  const progressFill = progressBar.querySelector('span');
+  const downloadArea = document.getElementById('downloadArea');
 
-      // Logging helper
-      function log(msg) {
-        const t = new Date().toISOString();
-        logDiv.textContent += `[${t}] ${msg}\n`;
-        logDiv.scrollTop = logDiv.scrollHeight;
+  // Helper: update UI state
+  function setProgress(p) {
+    const v = Math.max(0, Math.min(100, p|0));
+    progressFill.style.width = v + '%';
+    progressBar.setAttribute('aria-valuenow', String(v));
+  }
+
+  function resetUIState() {
+    workbookRaw = null;
+    activitiesMap.clear();
+    allPaths = [];
+    fileInfo.textContent = 'No file loaded yet.';
+    startInfo.textContent = 'Enter a valid Activity ID from the file.';
+    statusEl.textContent = '';
+    setProgress(0);
+    downloadArea.innerHTML = '';
+    runBtn.disabled = true;
+    clearBtn.disabled = true;
+    startInput.value = '';
+  }
+
+  // Load SheetJS from CDN (lib is tiny and commonly available)
+  // We assume the user has internet; otherwise they'd need to host the lib locally.
+  // We'll still guard with a try/catch for environments without the lib loaded yet.
+  function ensureSheetJS() {
+    if (typeof XLSX === 'undefined') {
+      return loadSheetJS();
+    }
+    return Promise.resolve();
+  }
+
+  function loadSheetJS() {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.19.3/xlsx.full.min.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load SheetJS library.'));
+      document.head.appendChild(script);
+    });
+  }
+
+  // Parse loaded workbook into internal map
+  function parseWorkbookToMap(workbook) {
+    // Expect first sheet to contain headers as described
+    const sheetName = workbook.SheetNames[0];
+    const ws = workbook.Sheets[sheetName];
+    const json = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+    // Expected headers (as provided)
+    const requiredHeaders = [
+      'Project ID', 'Activity ID', 'Activity Name', 'At Completion Duration',
+      'Start', 'Finish', 'Activity Status', 'Total Float',
+      'Primary Constraint', 'Predecessor Details', 'Predecessors',
+      'Successor Details', 'Successors'
+    ];
+
+    // Validate presence of Activity ID column at minimum
+    if (json.length === 0) {
+      throw new Error('Excel sheet is empty or unreadable.');
+    }
+
+    // Build activities map
+    const map = new Map();
+    for (const row of json) {
+      const actId = String(row['Activity ID'] ?? '').trim();
+      if (!actId) continue;
+      // Normalize a minimal activity object
+      const rec = {
+        projectId: String(row['Project ID'] ?? '').trim(),
+        activityId: actId,
+        name: String(row['Activity Name'] ?? '').trim(),
+        duration: Number(row['At Completion Duration'] ?? 0) || 0,
+        start: row['Start'] ?? null,
+        finish: row['Finish'] ?? null,
+        status: String(row['Activity Status'] ?? '').trim(),
+        totalFloat: Number(row['Total Float'] ?? 0) || 0,
+        constraint: String(row['Primary Constraint'] ?? '').trim(),
+        predecessorsRaw: String(row['Predecessors'] ?? '').trim(),
+        predsDetailed: row['Predecessor Details'] ?? null,
+        successorsRaw: String(row['Successors'] ?? '').trim(),
+        succsDetailed: row['Successor Details'] ?? null
+      };
+      map.set(actId, rec);
+    }
+
+    // Validate at least some nodes exist
+    if (map.size === 0) {
+      throw new Error('No valid Activity IDs found in the sheet.');
+    }
+
+    return map;
+  }
+
+  // DFS backward traversal from startId through predecessors
+  // Predecessors field is expected to reference Activity IDs. They may be comma-separated or semicolon separated.
+  function extractPredecessors(rec) {
+    const raw = rec.predecessorsRaw || '';
+    const tokens = raw.split(/[;,]+/).map(t => t.trim()).filter(t => t.length > 0);
+    // If there is no dedicated field, try to parse from 'predsDetailed' or 'Predecessor Details' if available
+    // For robustness, also check if the 'Predecessor Details' object exists in rec
+    if (tokens.length === 0 && rec.predsDetailed && Array.isArray(rec.predsDetailed)) {
+      rec.predsDetailed.forEach(p => {
+        if (p && p.id) tokens.push(String(p.id));
+      });
+    }
+    // Normalize
+    return tokens;
+  }
+
+  // Build a path as array of activity records
+  function dfsPaths(startActId, map) {
+    const paths = [];
+    const visited = new Set();
+
+    // Internal DFS with backtracking
+    function dfs(currentId, path) {
+      const current = map.get(currentId);
+      if (!current) return;
+
+      // Detect cycle
+      if (path.includes(currentId)) {
+        // Cycle detected; stop exploring this branch
+        return;
       }
 
-      // Utility: clear results
-      function clearResults() {
-        resultsDiv.innerHTML = '';
-        resultsPanel.style.display = 'block';
-        paths = [];
-        graph = {};
-        workbookData = [];
-        headers = [];
-      }
-
-      // Guard: ensure XLSX is loaded
-      function ensureXLSXLoaded() {
-        if (typeof XLSX === 'undefined') {
-          log('Error: XLSX library is not loaded. Check network or CSP.');
-          alert('XLSX library did not load. Check network or CSP settings.');
-          return false;
-        }
-        return true;
-      }
-
-      // Header detection: heuristic based on header names
-      function detectHeadersFromRows(rows) {
-        if (!rows || rows.length === 0) return [];
-        const candidate = Object.keys(rows[0] || {});
-        const likely = [
-          'id','activity','name','task','desc','description','start','finish','duration','dur','days',
-          'predecessor','pre','pred','dep','dependencies','predecessors','successor','succ','succs','dependencies'
-        ];
-        const detected = candidate.filter(c => {
-          const lc = String(c).toLowerCase();
-          return likely.some(n => lc.includes(n));
-        });
-        if (detected.length === 0) return candidate.slice(0, 6);
-        return detected;
-      }
-
-      // Graph construction: map each row to its predecessors
-      // We consider columns that include 'pred' or 'dependencies' as sources of preds
-      function buildGraph(rows, hdrs) {
-        const g = {};
-        const idCol = hdrs.find(h => String(h).toLowerCase().includes('id')) || 'ID';
-        const predCols = hdrs.filter(h => String(h).toLowerCase().includes('pred') || String(h).toLowerCase().includes('dependencies'));
-        rows.forEach(r => {
-          const id = r[idCol] ?? r['ID'] ?? r['Id'] ?? '';
-          let preds = [];
-          predCols.forEach(pc => {
-            const val = r[pc];
-            if (val) {
-              preds = preds.concat(String(val).split(/[;,|]+/).map(s => s.trim()).filter(Boolean));
-            }
-          });
-          // Trim duplicates
-          preds = Array.from(new Set(preds));
-          g[id] = preds;
-        });
-        return g;
-      }
-
-      // Backward path tracing: DFS from startId to accumulate paths
-      function traceBackward(graph, startId, maxDepth = 2000) {
-        const results = [];
-        const stack = [[startId, [startId]]];
-        while (stack.length) {
-          const [node, path] = stack.pop();
-          const preds = graph[node] || [];
-          if (!preds.length || path.length > maxDepth) {
-            results.push(path);
-            continue;
-          }
-          preds.forEach(p => stack.push([p, path.concat(p)]));
-        }
-        results.sort((a, b) => b.length - a.length);
-        return results;
-      }
-
-      // CSV export: paths as rows with steps
-      function pathsToCSV(paths) {
-        const maxLen = paths.reduce((m, p) => Math.max(m, p.length), 0);
-        const lines = [];
-        lines.push(Array.from({ length: maxLen }).map((_, i) => `Step_${i+1}`).join(','));
-        for (const p of paths) {
-          const row = Array.from({ length: maxLen }).map((_, i) => p[i] ?? '');
-          lines.push(row.join(','));
-        }
-        return lines.join('\n');
-      }
-
-      // File input handler
-      fileInput.addEventListener('change', async (e) => {
-        clearResults();
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (!ensureXLSXLoaded()) return;
-
-        try {
-          const data = await file.arrayBuffer();
-          log('Reading workbook with XLSX...');
-          const wb = XLSX.read(data, { type: 'array' });
-
-          // Use first sheet
-          const firstSheetName = wb.SheetNames[0];
-          const ws = wb.Sheets[firstSheetName];
-
-          // Convert to JSON
-          const json = XLSX.utils.sheet_to_json(ws, { defval: '' });
-          workbookData = json;
-
-          // Detect headers
-          if (json.length > 0) {
-            headers = detectHeadersFromRows(json);
+      path.push(currentId);
+      const preds = extractPredecessors(current);
+      if (!preds || preds.length === 0) {
+        // If there are no predecessors, this is a path that ends here (we consider paths ending at a root)
+        // But we want paths ending at starting Activity ID, so we only store when we've reached the requested end.
+        // We traverse backwards from startId, so the path should end at some root upstream.
+        paths.push([...path]);
+      } else {
+        for (const p of preds) {
+          if (p && map.has(p)) {
+            dfs(p, path);
           } else {
-            headers = Object.keys(json[0] ?? {});
+            // If predecessor not in map, still include to path? We'll skip unknown preds to avoid false paths.
+            // Could optionally include as a terminal node.
           }
-
-          log(`Parsed rows: ${json.length}. Detected headers: ${headers.join(', ') || '(none)'}`);
-          runBtn.disabled = false;
-          exportBtn.disabled = true;
-
-          // Optional: show a quick preview in results
-          if (json.length > 0) {
-            const preview = json.slice(0, 5);
-            const tbl = document.createElement('table');
-            const thead = document.createElement('thead');
-            const tr = document.createElement('tr');
-            (headers.length ? headers : Object.keys(preview[0] ?? {})).forEach(h => {
-              const th = document.createElement('th');
-              th.textContent = h;
-              tr.appendChild(th);
-            });
-            thead.appendChild(tr);
-            tbl.appendChild(thead);
-            const tbody = document.createElement('tbody');
-            preview.forEach(row => {
-              const trr = document.createElement('tr');
-              (headers.length ? headers : Object.keys(row)).forEach(k => {
-                const td = document.createElement('td');
-                td.textContent = row[k] ?? '';
-                trr.appendChild(td);
-              });
-              tbody.appendChild(trr);
-            });
-            tbl.appendChild(tbody);
-            resultsDiv.innerHTML = '';
-            resultsDiv.appendChild(tbl);
-          }
-        } catch (err) {
-          log(`Error while parsing workbook: ${err?.message || err}`);
-          console.error(err);
         }
-      });
-
-      // Run button: build graph and trace
-      runBtn.addEventListener('click', () => {
-        if (!workbookData || workbookData.length === 0) {
-          log('No data loaded. Please upload a valid Excel file.');
-          return;
-        }
-        const startIdRaw = (startActivityInput.value ?? '').trim();
-        if (!startIdRaw) {
-          log('Please specify a Start Activity ID to trace backward.');
-          return;
-        }
-
-        // Build graph from data
-        const idHint = headers.find(h => String(h).toLowerCase().includes('id')) ?? 'ID';
-        const graphLocal = buildGraph(workbookData, headers);
-
-        // If startId not present, warn but proceed with available keys
-        if (!Object.values(graphLocal).some(arr => arr.includes(startIdRaw)) && !graphLocal[startIdRaw]) {
-          log(`Warning: Start Activity ID "${startIdRaw}" not found in data. Proceeding with available graph data.`);
-        }
-
-        paths = traceBackward(graphLocal, startIdRaw);
-        resultsDiv.innerHTML = '';
-
-        if (!paths.length) {
-          resultsDiv.textContent = 'No backward paths found for the given Start Activity.';
-        } else {
-          const ul = document.createElement('ul');
-          paths.forEach((p, idx) => {
-            const li = document.createElement('li');
-            li.textContent = `Path ${idx + 1}: ${p.join(' -> ')}`;
-            ul.appendChild(li);
-          });
-          resultsDiv.appendChild(ul);
-        }
-
-        exportBtn.disabled = paths.length === 0;
-        log(`Found ${paths.length} backward path(s).`);
-      });
-
-      // Export CSV
-      exportBtn.addEventListener('click', () => {
-        if (!paths || paths.length === 0) {
-          log('No paths to export.');
-          return;
-        }
-        const csv = pathsToCSV(paths);
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'backward_paths.csv';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        log('Exported backward_paths.csv');
-      });
-
-      // Initial status
-      log('Awaiting file upload. XLSX library loaded.');
-      if (typeof XLSX === 'undefined') {
-        log('Note: XLSX is not yet defined. If you see this message, the library might be blocked by CSP or still loading.');
       }
+      path.pop();
+    }
 
-      // Optional: auto-hide zero-state areas or enhance UX with a progress indicator in large datasets
-    })();
-  </script>
+    dfs(startActId, []);
+    return paths;
+  }
+
+  // Compute free float for a path: sum of free floats between consecutive activities
+  // We assume each activity record has a totalFloat field representing its own free float/float.
+  // In a typical CPM, free float between A and B is min(finish of A) - start of B, but since we only have
+  // certain fields, we approximate by using the totalFloat of each activity as a proxy.
+  // We'll implement a simple approach: for a path [A, B, C], sum minFloatAB + minFloatBC where
+  // minFloat between A and B is max(0, B.start - A.finish) if dates exist; else use A.totalFloat and B.totalFloat.
+  function computePathScore(pathIds, map) {
+    // Convert to activity sequence
+    const seq = pathIds.map(id => map.get(id)).filter(x => !!x);
+    let score = 0;
+    // Iterate adjacent pairs
+    for (let i = 0; i < seq.length - 1; i++) {
+      const a = seq[i];
+      const b = seq[i + 1];
+      // Attempt to compute free float with date-like data if available
+      let ff = 0;
+      // If both have numeric totalFloat, use average of their free floats as a simple proxy
+      if (typeof a.totalFloat === 'number' && typeof b.totalFloat === 'number') {
+        ff = Math.max(0, (a.totalFloat + b.totalFloat) / 2);
+      } else {
+        // Fallback: use a.totalFloat if available
+        if (typeof a.totalFloat === 'number') ff = a.totalFloat;
+        else if (typeof b.totalFloat === 'number') ff = b.totalFloat;
+        else ff = 0;
+      }
+      score += ff;
+    }
+    return score;
+  }
+
+  // Build top 10 paths by lowest score
+  function rankTopPaths(paths, map) {
+    const ranked = paths.map(idPath => {
+      const score = computePathScore(idPath, map);
+      return { path: idPath, score };
+    });
+    ranked.sort((a, b) => a.score - b.score);
+    return ranked.slice(0, 10);
+  }
+
+  // Create a new workbook with Path_<n> sheets
+  function generateOutputWorkbook(rankedPaths, map) {
+    // Create a new workbook
+    const wb = { SheetNames: [], Sheets: {} };
+
+    rankedPaths.forEach((rp, idx) => {
+      const sheetName = 'Path_' + (idx + 1);
+      // Build rows: header + path steps with key fields
+      const header = [
+        'PathIndex', 'Activity ID', 'Activity Name', 'Duration', 'Start', 'Finish', 'Total Float'
+      ];
+      const rows = [header];
+      const seq = rp.path.map(id => map.get(id)).filter(x => !!x);
+      seq.forEach(act => {
+        rows.push([
+          idx + 1,
+          act.activityId,
+          act.name,
+          act.duration,
+          act.start,
+          act.finish,
+          act.totalFloat
+        ]);
+      });
+
+      // Convert to SheetJS worksheet
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      wb.SheetNames.push(sheetName);
+      wb.Sheets[sheetName] = ws;
+    });
+
+    // Also store metadata
+    wb.Props = { Title: 'Critical Paths Output' };
+    return wb;
+  }
+
+  // Trigger download of workbook via SheetJS
+  function downloadWorkbook(wb, filename) {
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'critical_paths.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // Event handlers
+  excelInput.addEventListener('change', async (e) => {
+    resetUIState();
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    fileInfo.textContent = `Selected: ${file.name} (${file.size} bytes)`;
+    // Load SheetJS if needed
+    try {
+      await ensureSheetJS();
+    } catch (err) {
+      statusEl.innerHTML = '<span class="error">Error loading Excel parsing library.</span>';
+      return;
+    }
+
+    // Read file as binary string
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = ev.target.result;
+        const wb = XLSX.read(data, { type: 'binary', WTF: false });
+        workbookRaw = wb;
+        // Build map
+        activitiesMap = parseWorkbookToMap(wb);
+        statusEl.textContent = 'Workbook loaded and parsed.';
+        // Basic validation: ensure at least one Activity ID exists
+        if (activitiesMap.size > 0) {
+          // Enable start input and run button if start ID prefilled
+          startInfo.textContent = 'Enter a valid Activity ID from the file to begin.';
+          runBtn.disabled = false;
+          clearBtn.disabled = false;
+        } else {
+          statusEl.innerHTML = '<span class="error">No activities found in the workbook.</span>';
+        }
+      } catch (err) {
+        statusEl.innerHTML = '<span class="error">' + (err?.message || 'Failed to parse Excel file.') + '</span>';
+        workbookRaw = null;
+        activitiesMap.clear();
+        runBtn.disabled = true;
+        clearBtn.disabled = true;
+      }
+      setProgress(0);
+    };
+    reader.onerror = () => {
+      statusEl.innerHTML = '<span class="error">Failed to read the file.</span>';
+    };
+    reader.readAsBinaryString(file);
+  });
+
+  startInput.addEventListener('input', () => {
+    const v = String(startInput.value ?? '').trim();
+    if (!v) {
+      startInfo.textContent = 'Enter a valid Activity ID from the file.';
+      runBtn.disabled = true;
+      return;
+    }
+    if (activitiesMap.has(v)) {
+      startInfo.textContent = 'Starting Activity ID found. Ready to run.';
+      runBtn.disabled = false;
+    } else {
+      startInfo.textContent = 'Warning: This Activity ID does not exist in the loaded workbook.';
+      runBtn.disabled = true;
+    }
+  });
+
+  runBtn.addEventListener('click', async () => {
+    if (!workbookRaw || !activitiesMap.size) {
+      statusEl.innerHTML = '<span class="error">Please load a valid Excel file first.</span>';
+      return;
+    }
+    const startId = String(startInput.value || '').trim();
+    if (!startId || !activitiesMap.has(startId)) {
+      statusEl.innerHTML = '<span class="error">Invalid Starting Activity ID. Please select a valid one from the file.</span>';
+      return;
+    }
+
+    // Reset result area
+    downloadArea.innerHTML = '';
+    allPaths = [];
+
+    // DFS: gather all backward paths ending at some root upstream from start
+    statusEl.textContent = 'Computing paths (DFS) ...';
+    setProgress(10);
+
+    // Build DFS paths
+    let paths;
+    try {
+      paths = dfsPaths(startId, activitiesMap);
+    } catch (err) {
+      statusEl.innerHTML = '<span class="error">DFS failed: ' + (err?.message || String(err)) + '</span>';
+      return;
+    }
+
+    // If nothing found, inform
+    if (!paths || paths.length === 0) {
+      statusEl.innerHTML = '<span class="error">No paths found from the given Activity ID. Check the Predecessors data.</span>';
+      setProgress(100);
+      return;
+    }
+
+    // Rank and keep top 10
+    const ranked = rankTopPaths(paths, activitiesMap);
+    allPaths = ranked;
+
+    // Generate output workbook
+    const outputWb = generateOutputWorkbook(ranked, activitiesMap);
+    setProgress(70);
+    statusEl.textContent = `Found ${paths.length} path(s). Top ${ranked.length} will be exported.`;
+
+    // Trigger download
+    const filename = 'critical_paths_top10.xlsx';
+    downloadWorkbook(outputWb, filename);
+    setProgress(100);
+
+    // Show a download link as a friendly indicator
+    const link = document.createElement('a');
+    link.href = '#';
+    link.className = 'download';
+    link.textContent = `Download ${filename}`;
+    link.onclick = (ev) => {
+      ev.preventDefault();
+      downloadWorkbook(outputWb, filename);
+    };
+    downloadArea.appendChild(lineBreak());
+    downloadArea.appendChild(link);
+
+    statusEl.innerHTML = '<span class="success">Export complete. Your file is ready to download.</span>';
+  });
+
+  function lineBreak() {
+    const br = document.createElement('br');
+    return br;
+  }
+
+  clearBtn.addEventListener('click', () => {
+    // Reset everything but keep file if desired; here we reset all
+    resetUIState();
+    statusEl.textContent = 'State cleared. You can load a new file to begin.';
+  });
+
+  // Initialize
+  (function init() {
+    resetUIState();
+  })();
+</script>
+
+<!-- The following ensures the page can function offline in environments with no initial SheetJS loaded -->
+<!-- No external server calls are made; all operations are client-side -->
 </body>
 </html>
