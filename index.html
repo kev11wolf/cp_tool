@@ -353,7 +353,7 @@ label[for="csvFile"] {
       <li><label><input type="checkbox" id="chkUnitToggle"> Unit toggle updates</label></li>
     </ul>
   </div>
-  <div>Build info: v1.0.0 - 2023-10-09</div>
+  <div>Build info: v1.0.1 - 2023-10-09</div>
 </footer>
 
 <section class="settings-panel" id="settingsPanel" aria-label="Settings Panel">
@@ -435,7 +435,7 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
     App.logMessages.push(msg);
     const logPanel = document.getElementById("logPanel");
     if (logPanel) {
-      logPanel.textContent += msg + "\\n";
+      logPanel.textContent += msg + "\n";
       logPanel.scrollTop = logPanel.scrollHeight;
     }
     console.log(msg);
@@ -454,7 +454,7 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
   /* CSV Parsing */
   function parseCSV(csvString) {
     log("INFO","LOAD_CSV","Parsing CSV...");
-    const lines = csvString.split(/\\r?\\n/).filter(l=>!!l.trim());
+    const lines = csvString.split(/\r?\n/).filter(l=>!!l.trim());
     if (lines.length < 2) {
       log("ERROR","LOAD_CSV","Not enough rows, must have header + data");
       return [];
@@ -665,7 +665,7 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
   /* Forward Pass to compute ES, EF */
   function forwardPass(topoOrder) {
     log("INFO","FORWARD_PASS","Computing ES/EF");
-    let minStart = 0;
+    App.projectFinish = 0;
     topoOrder.forEach(id => {
       const act = App.activities[id];
       const preds = App.adjacency.predecessors[id];
@@ -691,7 +691,6 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
     revOrder.forEach(id => {
       const act = App.activities[id];
       if (App.adjacency.successors[id].length === 0) {
-        // no successors => project finish or provided LF
         act.lateFinish = App.projectFinish;
       } else {
         let minLS = Infinity;
@@ -743,7 +742,6 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
 
     const startStatus = App.activities[startID] ? App.activities[startID].status : "unknown";
     if (startStatus==="completed") {
-      // special case: zero-edge path from completed node
       App.paths.push({
         nodeSequence: [startID],
         edgeList: [],
@@ -762,16 +760,12 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
       }
       const {path, depth, totalFF} = stack.pop();
       const current = path[path.length-1];
-      // expand
       const preds = App.adjacency.predecessors[current] || [];
       if (preds.length===0) {
-        // no predecessors, stop
       } else {
         for (let i=0; i<preds.length; i++){
           const p = preds[i];
           if (App.activities[p].status==="completed") {
-            // finalize a path
-            // find forward edge from p->current to get FF_edge
             const edgeFF = getEdgeFF(p,current);
             const finalFF = totalFF + edgeFF;
             const newPath = [...path,p];
@@ -788,13 +782,9 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
               return;
             }
           } else if (App.activities[p].type==="placeholder") {
-            // do not go beyond placeholders
           } else {
-            // check if p is visited in this path
             if (path.includes(p)) {
-              // skip, no repeated nodes in same path
             } else {
-              // continue DFS
               if (depth+1>maxDepth) {
                 log("WARN","ENUMERATE_PATHS","MaxDepth limit reached");
               } else {
@@ -812,7 +802,6 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
     }
   }
   function getEdgeFF(u,v) {
-    // find edge in App.edges
     const e = App.edges.find(ed => ed.u===u && ed.v===v);
     return e ? e.FF_edge : 0;
   }
@@ -832,21 +821,15 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
         }
         p.edgeList.push({u, v, ff:eFF});
       }
-      // totalFF is already in p.totalFF
-      // edgesCount is p.edgesCount
       p.idSequence = p.nodeSequence.slice().reverse().join(">");
     });
     App.paths.sort((a,b)=>{
-      // Primary: ascending totalFF
       if (a.totalFF!==b.totalFF) return a.totalFF - b.totalFF;
-      // Secondary: edgesCount
       if (a.edgesCount!==b.edgesCount) return a.edgesCount - b.edgesCount;
-      // Tertiary: lexicographic
       if (a.idSequence<b.idSequence) return -1;
       if (a.idSequence>b.idSequence) return 1;
       return 0;
     });
-    // top3
     App.top3 = App.paths.slice(0,3);
   }
 
@@ -926,7 +909,7 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
       log("WARN","EXPORT","No paths to export");
       return;
     }
-    let pathsCsv = "Rank,TotalFF_Days,TotalFF_Hours,EdgesCount,BottleneckFF_Days,BottleneckEdge,TerminalCompletedID,PathIDs,PerEdgeFF_Days,Aborted,Notes\\n";
+    let pathsCsv = "Rank,TotalFF_Days,TotalFF_Hours,EdgesCount,BottleneckFF_Days,BottleneckEdge,TerminalCompletedID,PathIDs,PerEdgeFF_Days,Aborted,Notes\n";
     App.paths.forEach((p,idx)=>{
       const rank = idx+1;
       const tffDays = p.totalFF.toFixed(2);
@@ -934,7 +917,6 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
       const bottleneckDays = p.bottleneckEdgeFF.toFixed(2);
       let bEdge = "";
       if (p.edgeList.length>0) {
-        // find the edge with that bottleneck
         const bn = p.edgeList.find(x=>x.ff===p.bottleneckEdgeFF);
         if (bn) { bEdge = bn.u+"->"+bn.v; }
       }
@@ -946,9 +928,9 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
       const row = [
         rank, tffDays, tffHours, p.edgesCount, bottleneckDays, bEdge, terminal, pathIds, perEdgeDays, aborted, notes
       ].map(x=>`"${x}"`).join(",");
-      pathsCsv += row + "\\n";
+      pathsCsv += row + "\n";
     });
-    let summaryCsv = "Rank,TotalFF_Days,TotalFF_Hours,EdgesCount,BottleneckFF_Days,BottleneckEdge,TerminalCompletedID,PathIDs,PerEdgeFF_Days,Aborted,Notes\\n";
+    let summaryCsv = "Rank,TotalFF_Days,TotalFF_Hours,EdgesCount,BottleneckFF_Days,BottleneckEdge,TerminalCompletedID,PathIDs,PerEdgeFF_Days,Aborted,Notes\n";
     App.top3.forEach((p,idx)=>{
       const rank = idx+1;
       const tffDays = p.totalFF.toFixed(2);
@@ -967,9 +949,9 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
       const row = [
         rank, tffDays, tffHours, p.edgesCount, bottleneckDays, bEdge, terminal, pathIds, perEdgeDays, aborted, notes
       ].map(x=>`"${x}"`).join(",");
-      summaryCsv += row + "\\n";
+      summaryCsv += row + "\n";
     });
-    const logText = App.logMessages.join("\\n");
+    const logText = App.logMessages.join("\n");
     downloadFile(pathsCsv,"Paths.csv","text/csv");
     downloadFile(summaryCsv,"Summary.csv","text/csv");
     downloadFile(logText,"AnalysisLog.txt","text/plain");
@@ -995,33 +977,25 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
     document.getElementById("progressLabel").textContent = "Analysis in progress...";
     updateChecklistItem("chkPathsFound", false);
     updateChecklistItem("chkPathsRanked", false);
-    // check cycle
     const topoOrder = topologicalSort();
     if (App.cycleDetected) return;
     document.getElementById("globalProgress").value = 10;
-    // forward pass
     forwardPass(topoOrder);
     document.getElementById("globalProgress").value = 25;
-    // backward pass
     backwardPass(topoOrder);
     document.getElementById("globalProgress").value = 40;
     updateChecklistItem("chkCpmTimes", true);
-    // compute FF
     computeEdgeFF();
     updateChecklistItem("chkFreeFloat", true);
     document.getElementById("globalProgress").value = 50;
-    // find projectFinish
     document.getElementById("projectFinish").textContent = App.projectFinish.toFixed(2);
-    // enumerate paths
     App.canceled = false;
     enumerateBackwardPaths(document.getElementById("startActivityId").value.trim());
     updateChecklistItem("chkPathsFound", App.paths.length>0);
     document.getElementById("globalProgress").value = 70;
-    // rank
     rankPaths();
     updateChecklistItem("chkPathsRanked", true);
     document.getElementById("globalProgress").value = 80;
-    // render
     renderPathTables();
     document.getElementById("globalProgress").value = 100;
     document.getElementById("progressLabel").textContent = "Done.";
@@ -1030,11 +1004,58 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
     document.getElementById("analysisTime").textContent = (t1 - t0).toFixed(2);
   }
 
+  /* New unified file handler */
+  function handleFile(file) {
+    if (!file) return;
+    if (file.size > 10*1024*1024) {
+      log("WARN","LOAD_CSV","File too large (>10MB), proceed with caution");
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const records = parseCSV(text);
+      if (!records.length) {
+        return;
+      }
+      updateChecklistItem("chkCsvParsed", true);
+      setState("CSVLoaded");
+      document.getElementById("csvRowCount").textContent = "Rows: "+records.length;
+      buildGraph(records);
+    };
+    reader.readAsText(file);
+  }
+
+  function onFileSelected(evt) {
+    const file = evt.target.files[0];
+    handleFile(file);
+  }
+
+  function onDragOver(evt) {
+    evt.preventDefault();
+    evt.stopPropagation();
+    evt.dataTransfer.dropEffect = "copy";
+    document.getElementById("dragDropArea").classList.add("dragover");
+  }
+
+  function onDragLeave(evt) {
+    evt.preventDefault();
+    evt.stopPropagation();
+    document.getElementById("dragDropArea").classList.remove("dragover");
+  }
+
+  function onDrop(evt) {
+    evt.preventDefault();
+    evt.stopPropagation();
+    document.getElementById("dragDropArea").classList.remove("dragover");
+    const file = evt.dataTransfer.files[0];
+    handleFile(file);
+  }
+
   /* Self Test: load sample, build graph, analyze, check results */
   function runSelfTest() {
     log("INFO","SELF_TEST","Running self-test with embedded sample CSV");
     resetApp(false);
-    document.getElementById("csvRowCount").textContent = "Sample loaded, " + App.sampleCSV.split("\\n").length + " lines";
+    document.getElementById("csvRowCount").textContent = "Sample loaded, " + App.sampleCSV.split("\n").length + " lines";
     const records = parseCSV(App.sampleCSV);
     if (!records.length) {
       log("ERROR","SELF_TEST","Parsing sample CSV failed");
@@ -1043,7 +1064,6 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
     updateChecklistItem("chkCsvParsed", true);
     setState("CSVLoaded");
     buildGraph(records);
-    // build graph -> done
     document.getElementById("startActivityId").value = "A120";
     doAnalysis();
   }
@@ -1076,55 +1096,8 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
     setState("Idle");
     document.getElementById("globalProgress").value = 0;
     document.getElementById("progressLabel").textContent = "";
-    // uncheck checkboxes
     ["chkCsvParsed","chkGraphBuilt","chkNoCycles","chkCpmTimes","chkFreeFloat","chkPathsFound","chkPathsRanked","chkExportReady","chkLogAvailable","chkUnitToggle"]
     .forEach(id => updateChecklistItem(id,false));
-  }
-
-  /* Event Handlers */
-  function onFileSelected(evt) {
-    const file = evt.target.files[0];
-    if (!file) return;
-    if (file.size > 10*1024*1024) {
-      log("WARN","LOAD_CSV","File too large (>10MB), proceed with caution");
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result;
-      const records = parseCSV(text);
-      if (!records.length) {
-        return;
-      }
-      updateChecklistItem("chkCsvParsed", true);
-      setState("CSVLoaded");
-      document.getElementById("csvRowCount").textContent = "Rows: "+records.length;
-      buildGraph(records);
-    };
-    reader.readAsText(file);
-  }
-
-  function onDragOver(evt) {
-    evt.preventDefault();
-    evt.stopPropagation();
-    evt.dataTransfer.dropEffect = "copy";
-    document.getElementById("dragDropArea").classList.add("dragover");
-  }
-
-  function onDragLeave(evt) {
-    evt.preventDefault();
-    evt.stopPropagation();
-    document.getElementById("dragDropArea").classList.remove("dragover");
-  }
-
-  function onDrop(evt) {
-    evt.preventDefault();
-    evt.stopPropagation();
-    document.getElementById("dragDropArea").classList.remove("dragover");
-    const files = evt.dataTransfer.files;
-    if (files.length>0) {
-      document.getElementById("csvFile").files = files;
-      onFileSelected({target:{files}});
-    }
   }
 
   /* UI Setup */
@@ -1147,9 +1120,7 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
 
     document.getElementById("buildGraphBtn").addEventListener("click", ()=>{
       if (App.state==="CSVLoaded") {
-        // re-parse? We have records in memory?
-        // Actually we kept them only in parseCSV function
-        log("INFO","BUILD_GRAPH","Re-building graph not possible, re-load CSV for new parse");
+        log("INFO","BUILD_GRAPH","Graph build requested again. Reload or new parse if needed.");
       }
     });
     document.getElementById("analyzePathsBtn").addEventListener("click", ()=>{
@@ -1225,7 +1196,7 @@ PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0
         toggleTheme();
       } else if (evt.key==="g"){
         if (App.state==="CSVLoaded") {
-          // re-parse? let's just do nothing
+          log("INFO","BUILD_GRAPH","Graph build requested via keyboard. Reload or new parse if needed.");
         }
       } else if (evt.key==="a"){
         if (!App.cycleDetected && App.state!=="Idle" && document.getElementById("startActivityId").value.trim()!=="") {
