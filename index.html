@@ -327,7 +327,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
   function renderLogPanel() {
     const logPanel = document.getElementById("logPanel");
     if(!logPanel) return;
-    // Render log entries
     let html = "";
     for(let i=0; i<logEntries.length; i++){
       const e = logEntries[i];
@@ -343,7 +342,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
   }
 
   function updateChecklist() {
-    // update acceptance checkboxes
     const chkCSV = document.getElementById("chkCSV");
     const chkGraph = document.getElementById("chkGraph");
     const chkNoCycle = document.getElementById("chkNoCycle");
@@ -357,7 +355,7 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
     chkCSV.checked = (currentState !== STATE.Idle) && (parsedRows.length > 0);
     chkGraph.checked = (currentState === STATE.GraphBuilt || currentState === STATE.Analyzed || currentState === STATE.ExportReady);
     chkNoCycle.checked = !hasCycle;
-    chkCPM.checked = edgesList.length > 0; // indicates we did forward/backward pass
+    chkCPM.checked = edgesList.length > 0;
     chkFF.checked = edgesList.every(e=> e.hasOwnProperty("FF_edge"));
     chkPaths.checked = (currentState === STATE.Analyzed || currentState === STATE.ExportReady) && pathsResult.length>0;
     chkRanks.checked = pathsResult.length>0 && pathsResult[0].hasOwnProperty("rank");
@@ -373,17 +371,15 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
   }
 
   function updateUIState() {
-    // Update button states
     const buildGraphBtn = document.getElementById("buildGraphBtn");
     const analyzePathsBtn = document.getElementById("analyzePathsBtn");
     const exportBtn = document.getElementById("exportBtn");
-    const startActivitySelect = document.getElementById("startActivitySelect");
+    const startActivityInput = document.getElementById("startActivityIdInput");
 
     buildGraphBtn.disabled = !(currentState === STATE.CSVLoaded);
-    analyzePathsBtn.disabled = !(currentState === STATE.GraphBuilt && !hasCycle && startActivitySelect.value);
+    analyzePathsBtn.disabled = !(currentState === STATE.GraphBuilt && !hasCycle && startActivityInput.value);
     exportBtn.disabled = !(currentState === STATE.Analyzed && pathsResult.length>0);
 
-    // Status badges
     document.getElementById("statusIdle").classList.toggle("hidden", currentState !== STATE.Idle);
     document.getElementById("statusCSV").classList.toggle("hidden", currentState !== STATE.CSVLoaded);
     document.getElementById("statusGraph").classList.toggle("hidden", currentState !== STATE.GraphBuilt);
@@ -395,8 +391,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
   // CSV PARSING & VALIDATION
   ////////////////////////////////////////////////////////////
   function parseCSVText(csvText) {
-    // naive CSV parse, split lines, split by commas
-    // handle quotes minimally
     logMessage("INFO", "LOAD_CSV", "Parsing CSV text");
     const lines = csvText.split(/\r?\n/);
     if(lines.length <= 1) {
@@ -405,7 +399,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
     }
     const headerLine = lines[0];
     const headers = headerLine.split(",");
-    // Basic check for required headers
     for(const req of CSV_REQUIRED_HEADERS) {
       if(!headers.includes(req)) {
         logMessage("ERROR", "VALIDATE_SCHEMA", "Missing required header: " + req);
@@ -414,11 +407,9 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
     const result = [];
     for(let i = 1; i<lines.length; i++){
       const line = lines[i].trim();
-      if(!line) continue; // skip empty
-      // minimal split
+      if(!line) continue;
       const rawCols = splitCSVRow(line);
       if(rawCols.length < headers.length) {
-        // pad columns
         while(rawCols.length < headers.length) {
           rawCols.push("");
         }
@@ -434,7 +425,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
   }
 
   function splitCSVRow(row) {
-    // Minimal CSV split for demonstration (doesn't fully handle complex quotes)
     const result = [];
     let current = "";
     let inQuotes = false;
@@ -443,7 +433,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
       if(ch === '"' && !inQuotes) {
         inQuotes = true;
       } else if(ch === '"' && inQuotes) {
-        // peek next
         if(i+1 < row.length && row[i+1] === '"'){
           current += '"'; 
           i++;
@@ -481,7 +470,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
         continue;
       }
       if(tasksMap[actId]) {
-        // Duplicate activity ID
         logMessage("WARN", "BUILD_GRAPH", "Duplicate Activity ID found: " + actId + " (ignoring subsequent)");
         continue;
       }
@@ -505,7 +493,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
       adjPredecessors[actId] = [];
     }
 
-    // Build edges
     for(const actId in tasksMap) {
       const row = tasksMap[actId].row;
       const predsStr = row["Predecessors"] || "";
@@ -514,7 +501,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
         for(const p of preds) {
           if(!tasksMap[p]) {
             if(fallbackMode === "placeholder") {
-              // create placeholder
               if(!tasksMap[p]) {
                 tasksMap[p] = {
                   row: {},
@@ -527,12 +513,10 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
                 logMessage("WARN", "BUILD_GRAPH", "Placeholder created for missing predecessor: " + p);
               }
             } else {
-              // strict
               logMessage("ERROR", "BUILD_GRAPH", "Predecessor " + p + " not found for " + actId + ", ignoring edge");
               continue; 
             }
           }
-          // build adjacency
           if(!adjSuccessors[p]) adjSuccessors[p] = [];
           if(!adjPredecessors[actId]) adjPredecessors[actId] = [];
           if(!adjSuccessors[p].includes(actId)) adjSuccessors[p].push(actId);
@@ -549,7 +533,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
   ////////////////////////////////////////////////////////////
   function computeCPM() {
     logMessage("INFO", "TOPO_SORT", "Performing Kahn's algorithm topological sort");
-    // Kahn's
     const inDegree = {};
     for(const actId in tasksMap) {
       inDegree[actId] = adjPredecessors[actId].length;
@@ -569,7 +552,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
         }
       }
     }
-    // If order length < tasksMap size => cycle
     if(order.length < Object.keys(tasksMap).length) {
       hasCycle = true;
       logMessage("ERROR", "TOPO_SORT", "Cycle detected! Some nodes remain unsorted.");
@@ -577,9 +559,7 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
     }
     topologicalOrder = order;
 
-    // Forward pass
     logMessage("INFO", "FORWARD_PASS", "Computing ES/EF");
-    // find earliest Start across all tasks
     let earliestStart = null;
     for(const actId in tasksMap) {
       const row = tasksMap[actId].row;
@@ -589,9 +569,9 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
       }
     }
     if(!earliestStart) {
-      earliestStart = new Date(); // fallback to current date if none
+      earliestStart = new Date();
     }
-    baseStartDay = +earliestStart; // store as ms
+    baseStartDay = +earliestStart;
 
     for(const actId in tasksMap) {
       tasksMap[actId].ES = 0;
@@ -599,13 +579,11 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
     }
 
     for(const u of topologicalOrder) {
-      // ES(u) = max of EF(p) among predecessors
       let esVal = 0;
       for(const p of adjPredecessors[u]) {
         const predEF = tasksMap[p].EF;
         if(predEF>esVal) esVal = predEF;
       }
-      // check if user-provided Start can override
       const rowU = tasksMap[u].row;
       const startDate = parseLocalDate(rowU["Start"]);
       const diffStart = convertMsToDays((startDate? +startDate : baseStartDay) - baseStartDay);
@@ -616,14 +594,12 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
       tasksMap[u].EF = esVal + tasksMap[u].duration;
     }
 
-    // Project finish = max(EF)
     let projectFinish = 0;
     for(const actId in tasksMap) {
       const efVal = tasksMap[actId].EF;
       if(efVal>projectFinish) projectFinish = efVal;
     }
 
-    // Backward pass
     logMessage("INFO", "BACKWARD_PASS", "Computing LS/LF");
     for(const actId in tasksMap) {
       tasksMap[actId].LF = projectFinish;
@@ -640,7 +616,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
         }
       }
       const rowU = tasksMap[u].row;
-      // check if user-provided Finish overrides
       const finishDate = parseLocalDate(rowU["Finish"]);
       if(finishDate!==null) {
         const diffFinish = convertMsToDays((+finishDate) - baseStartDay);
@@ -650,9 +625,8 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
       tasksMap[u].LS = lfVal - tasksMap[u].duration;
     }
 
-    // Edge Free Float
-    edgesList = [];
     logMessage("INFO", "FF_EDGES", "Computing per-edge free float");
+    edgesList = [];
     for(const u in tasksMap) {
       for(const v of adjSuccessors[u]) {
         const esV = tasksMap[v].ES;
@@ -689,8 +663,7 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
     let stack = [{ node: startId, path: [startId], edges: [] }];
     const result = [];
 
-    if(tasksMap[startId].status==="completed") {
-      // zero-edge path
+    if(tasksMap[startId] && tasksMap[startId].status==="completed") {
       result.push({
         path: [startId],
         edges: [],
@@ -700,45 +673,32 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
       });
     }
 
-    // Iterative DFS
     while(stack.length>0) {
-      // check if we reached maxPaths
       if(result.length >= maxPaths) {
         maxPathsReached = true;
         break;
       }
       const top = stack.pop();
       const currentNode = top.node;
-      // expand predecessors
       const preds = adjPredecessors[currentNode] || [];
       if(preds.length===0) {
-        // no more predecessors
-        // do we store if currentNode not completed? only if it leads to a completed node or is self completed
-        // Actually we only store if last node is completed or start node was completed
-        // But here it's not completed => we do not store
+        // no more preds
       } else {
         for(const p of preds) {
           if(result.length >= maxPaths) break;
-          // check placeholder
-          if(tasksMap[p].status==="unknown") {
-            // stop expansion
+          if(tasksMap[p] && tasksMap[p].status==="unknown") {
             continue;
           }
-          // check repeated node in path => skip
           if(top.path.includes(p)) {
-            // skip
             continue;
           }
           const newPath = top.path.concat([p]);
           const newEdges = top.edges.slice();
-          // We need the edge forward direction p->(some successor) but we want p-> current
-          // find edge free float from p-> current
           const e = edgesList.find(e=> e.u===p && e.v===currentNode);
           let ffVal = (e? e.FF_edge : 0);
           newEdges.push({ u: p, v: currentNode, FF_edge: ffVal });
 
-          if(tasksMap[p].status==="completed") {
-            // store path
+          if(tasksMap[p] && tasksMap[p].status==="completed") {
             const totalFF = newEdges.reduce((acc, x)=> acc + x.FF_edge, 0);
             result.push({
               path: newPath,
@@ -748,7 +708,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
               terminalId: p
             });
           } else {
-            // keep searching if depth < maxDepth
             if(newPath.length <= maxDepth) {
               stack.push({
                 node: p,
@@ -763,7 +722,7 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
       }
     }
 
-    pathsResult = result.map((r, i)=> {
+    pathsResult = result.map((r)=> {
       return {
         path: r.path,
         edges: r.edges,
@@ -778,11 +737,8 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
   // PATH RANKING
   ////////////////////////////////////////////////////////////
   function rankPaths() {
-    if(!pathsResult || !pathsResult.length) return;
+    if(!pathsResult.length) return;
     logMessage("INFO", "RANK_PATHS", "Ranking paths");
-    // primary sort: ascending totalFF
-    // secondary: ascending edgesCount
-    // tertiary: lexicographic
     pathsResult.sort((a,b)=> {
       if(a.totalFF!==b.totalFF) return a.totalFF - b.totalFF;
       if(a.edgesCount!==b.edgesCount) return a.edgesCount - b.edgesCount;
@@ -790,7 +746,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
       const bSeq = b.path.join(">");
       return aSeq.localeCompare(bSeq);
     });
-    // assign rank
     for(let i=0; i<pathsResult.length; i++){
       pathsResult[i].rank = i+1;
     }
@@ -800,7 +755,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
   // RENDER RESULTS
   ////////////////////////////////////////////////////////////
   function renderResults() {
-    // Update dashboard cards
     const actCountCard = document.getElementById("actCountCard");
     const edgeCountCard = document.getElementById("edgeCountCard");
     const cycleCard = document.getElementById("cycleCard");
@@ -821,7 +775,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
     finishCard.textContent = pf.toFixed(2) + " days";
     analysisTimeCard.textContent = (new Date()).toLocaleTimeString();
 
-    // Top 3 paths
     const top3Tbl = document.getElementById("top3Tbody");
     top3Tbl.innerHTML = "";
     const top3 = pathsResult.slice(0,3);
@@ -849,7 +802,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
       top3Tbl.appendChild(tr);
     }
 
-    // Detailed paths
     const detailDiv = document.getElementById("detailedPathsTable");
     const table = detailDiv.querySelector("table");
     const tbody = table.querySelector("tbody");
@@ -869,7 +821,7 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
       const tdTerminal = document.createElement("td");
       tdTerminal.textContent = p.terminalId;
       const tdPath = document.createElement("td");
-      tdPath.textContent = p.path.slice().reverse().join(">"); // show backward or forward?
+      tdPath.textContent = p.path.slice().reverse().join(">");
       const tdEdgeFF = document.createElement("td");
       tdEdgeFF.textContent = p.edges.map(e=> formatFF(e.FF_edge) ).join(";");
       const tdNotes = document.createElement("td");
@@ -1009,7 +961,7 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
   }
 
   function onBuildGraph() {
-    setState(STATE.CSVLoaded); // ensure state
+    setState(STATE.CSVLoaded);
     buildGraph();
     if(currentState===STATE.GraphBuilt) {
       computeCPM();
@@ -1017,6 +969,17 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
         logMessage("ERROR", "CPM", "Cannot proceed due to cycle. Analysis blocked.");
       }
       updateUIState();
+      populateStartActivityDatalist();
+    }
+  }
+
+  function populateStartActivityDatalist() {
+    const dl = document.getElementById("startActivityDatalist");
+    dl.innerHTML = "";
+    for(const actId in tasksMap) {
+      const opt = document.createElement("option");
+      opt.value = actId;
+      dl.appendChild(opt);
     }
   }
 
@@ -1025,10 +988,9 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
       logMessage("ERROR", "CPM", "Cannot analyze paths due to cycle");
       return;
     }
-    const startActivitySelect = document.getElementById("startActivitySelect");
-    const startId = startActivitySelect.value;
+    const startId = document.getElementById("startActivityIdInput").value;
     if(!startId) {
-      logMessage("ERROR", "ENUMERATE_PATHS", "No start ID selected");
+      logMessage("ERROR", "ENUMERATE_PATHS", "No start ID entered");
       return;
     }
     enumerateBackwardPaths(startId);
@@ -1058,9 +1020,10 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
     logEntries = [];
     maxPathsReached = false;
     analysisAborted = false;
+    document.getElementById("startActivityIdInput").value = "";
+    document.getElementById("startActivityDatalist").innerHTML = "";
     setState(STATE.Idle);
     renderLogPanel();
-    document.getElementById("startActivitySelect").innerHTML = "";
     document.getElementById("csvFileInput").value = "";
     renderResults();
     updateUIState();
@@ -1134,35 +1097,37 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
   }
 
   function onRunSelfTest() {
-    // Load sample => build => analyze => check acceptance
     onLoadSample();
     setTimeout(()=>{
       onBuildGraph();
       setTimeout(()=>{
-        const startSelect = document.getElementById("startActivitySelect");
-        const firstKey = Object.keys(tasksMap)[0];
-        startSelect.value = firstKey;
+        const dlItem = Object.keys(tasksMap)[0] || "";
+        document.getElementById("startActivityIdInput").value = dlItem;
         onAnalyzePaths();
         logMessage("INFO", "SELF_TEST", "Self-test complete");
       },500);
     },500);
   }
 
-  ////////////////////////////////////////////////////////////
-  // INIT
-  ////////////////////////////////////////////////////////////
   window.addEventListener("DOMContentLoaded", ()=>{
-    // default theme
     document.body.setAttribute("data-theme","light");
-
-    // set initial state
     setState(STATE.Idle);
 
-    // drag & drop
     const dropArea = document.getElementById("csvDropArea");
-    dropArea.addEventListener("dragenter", (e)=>{ e.preventDefault(); e.stopPropagation(); dropArea.classList.add("dragover"); });
-    dropArea.addEventListener("dragover", (e)=>{ e.preventDefault(); e.stopPropagation(); });
-    dropArea.addEventListener("dragleave", (e)=>{ e.preventDefault(); e.stopPropagation(); dropArea.classList.remove("dragover"); });
+    dropArea.addEventListener("dragenter", (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      dropArea.classList.add("dragover");
+    });
+    dropArea.addEventListener("dragover", (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    dropArea.addEventListener("dragleave", (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      dropArea.classList.remove("dragover");
+    });
     dropArea.addEventListener("drop", (e)=>{
       e.preventDefault();
       e.stopPropagation();
@@ -1172,20 +1137,6 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
       }
     });
 
-    // fill startActivitySelect after graph built
-    document.getElementById("startActivitySelect").addEventListener("click", (e)=>{
-      // populate when needed
-      const sel = e.currentTarget;
-      sel.innerHTML = "";
-      for(const actId in tasksMap) {
-        const opt = document.createElement("option");
-        opt.value = actId;
-        opt.textContent = actId;
-        sel.appendChild(opt);
-      }
-    });
-
-    // keyboard shortcuts
     document.addEventListener("keydown", (e)=>{
       if(e.key==="?") {
         openHelpModal();
@@ -1252,8 +1203,9 @@ P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4
 
     <hr />
     <h3>Start & Actions</h3>
-    <label>Start Activity ID:</label>
-    <select id="startActivitySelect"></select>
+    <label>Start Activity ID (type or select from list):</label>
+    <input type="text" id="startActivityIdInput" list="startActivityDatalist" />
+    <datalist id="startActivityDatalist"></datalist>
     <div class="buttonRow">
       <button id="buildGraphBtn" onclick="onBuildGraph()" disabled>Build Graph</button>
       <button id="analyzePathsBtn" onclick="onAnalyzePaths()" disabled>Analyze Paths</button>
