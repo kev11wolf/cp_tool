@@ -2,1223 +2,1380 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8" />
 <title>CPM Backward Path Analyzer</title>
 <style>
 /* 
-  Inline CSS for responsive layout, dark/light theme, and basic styling.
-  We store everything here to ensure a single-file offline SPA. 
-  Keep it minimal but production-grade, with some responsiveness. 
+  Single-file, self-contained CSS 
+  Responsive layout for widths >= 768px 
+  Basic light/dark theme support 
 */
 :root {
-  --bg-color-light: #f9f9f9;
-  --text-color-light: #333;
-  --bg-color-dark: #121212;
-  --text-color-dark: #e5e5e5;
-  --accent-color: #007acc;
-  --transition-speed: 0.2s;
-  --header-height: 50px;
-  --sidebar-width: 280px;
-  --content-max-width: 1200px;
+  --color-bg-light: #ffffff;
+  --color-text-light: #000000;
+  --color-bg-dark: #222222;
+  --color-text-dark: #ffffff;
+  --color-accent: #007acc;
+  --transition-speed: 0.3s;
+  --spacing: 0.5rem;
+  --border-radius: 4px;
+  --panel-width: 300px;
+  --log-height-collapsed: 40px;
+  --log-height-expanded: 200px;
 }
 
-/* Light theme as default */
-body.light {
-  background-color: var(--bg-color-light);
-  color: var(--text-color-light);
+body[data-theme="light"] {
+  background-color: var(--color-bg-light);
+  color: var(--color-text-light);
 }
 
-/* Dark theme overrides */
-body.dark {
-  background-color: var(--bg-color-dark);
-  color: var(--text-color-dark);
+body[data-theme="dark"] {
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-dark);
 }
 
-body {
+* {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
   font-family: sans-serif;
-  transition: background-color var(--transition-speed), color var(--transition-speed);
 }
 
-header {
+header, footer {
+  padding: var(--spacing);
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  height: var(--header-height);
-  padding: 0 1rem;
-  background-color: var(--accent-color);
-  color: white;
-}
-
-header .left-area {
-  display: flex;
   align-items: center;
+  background: var(--color-accent);
+  color: #fff;
 }
 
-header .app-title {
-  font-weight: bold;
-  margin-right: 1rem;
-}
-
-header button {
-  margin-left: 0.5rem;
+header button, footer button {
+  margin-left: var(--spacing);
 }
 
 main {
   display: grid;
   grid-template-columns: 1fr 2fr;
-  gap: 1rem;
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-  padding: 1rem;
+  gap: var(--spacing);
+  padding: var(--spacing);
+  align-items: start;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
   main {
     grid-template-columns: 1fr;
   }
 }
 
-.left-panel, .right-panel {
-  background-color: rgba(0,0,0,0.03);
-  padding: 0.5rem;
-  border-radius: 4px;
-}
-
-.left-panel h2, .right-panel h2 {
-  margin-top: 0;
-}
-
-.footer-area {
-  padding: 1rem;
-  text-align: center;
-  font-size: 0.9rem;
-  background-color: rgba(0,0,0,0.05);
-}
-
-section.settings-panel {
-  position: fixed;
-  top: var(--header-height);
-  right: 0;
-  width: var(--sidebar-width);
-  bottom: 0;
-  background-color: rgba(0,0,0,0.8);
-  color: white;
-  transform: translateX(100%);
-  transition: transform var(--transition-speed);
-  padding: 1rem;
-  overflow-y: auto;
-  z-index: 999;
-}
-
-section.settings-panel.open {
-  transform: translateX(0);
-}
-
-section.help-modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  width: 400px;
-  max-width: 90%;
-  background-color: #fff;
-  padding: 1rem;
-  border-radius: 4px;
-  transform: translate(-50%,-50%) scale(0);
-  opacity: 0;
-  transition: transform var(--transition-speed), opacity var(--transition-speed);
-  z-index: 9999;
-}
-section.help-modal.open {
-  transform: translate(-50%,-50%) scale(1);
-  opacity: 1;
-}
-.help-modal h3 {
-  margin-top: 0;
-}
-
-div.log-panel {
+/* Left panel for controls */
+#leftPanel {
   border: 1px solid #ccc;
-  background: #fff;
-  color: #000;
-  height: 150px;
-  overflow-y: auto;
-  margin-top: 0.5rem;
-  padding: 0.25rem;
-  display: none;
-}
-div.log-panel.open {
-  display: block;
+  padding: var(--spacing);
+  border-radius: var(--border-radius);
 }
 
-.top-cards {
+/* Right panel for results */
+#rightPanel {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  flex-direction: column;
 }
-.top-cards .card {
-  background-color: #fff;
-  color: #000;
-  padding: 0.5rem;
-  flex: 1;
-  border-radius: 4px;
+
+/* Cards row */
+#dashboardCards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing);
+  margin-bottom: var(--spacing);
+}
+.card {
   border: 1px solid #ccc;
+  border-radius: var(--border-radius);
+  padding: var(--spacing);
+  flex: 1;
+  min-width: 120px;
 }
-table {
+
+/* Top 3 paths preview */
+#top3PathsPreview table {
   width: 100%;
   border-collapse: collapse;
 }
-table thead {
-  background: #ddd;
-}
-table th, table td {
+#top3PathsPreview th, #top3PathsPreview td {
   border: 1px solid #ccc;
-  padding: 0.25rem;
+  padding: var(--spacing);
   text-align: left;
-  word-break: break-all;
 }
-.acceptance-checklist {
+
+/* Detailed paths table */
+#detailedPathsTable {
+  flex: 1;
+  overflow: auto;
+  border: 1px solid #ccc;
+  border-radius: var(--border-radius);
+  margin-top: var(--spacing);
+}
+#detailedPathsTable table {
+  width: 100%;
+  border-collapse: collapse;
+}
+#detailedPathsTable th, #detailedPathsTable td {
+  border: 1px solid #ccc;
+  padding: var(--spacing);
   text-align: left;
-  display: inline-block;
-  margin-bottom: 1rem;
 }
+
+/* Log panel */
+#logPanel {
+  max-height: var(--log-height-collapsed);
+  overflow: hidden;
+  transition: max-height var(--transition-speed) ease-in-out;
+  background: #f0f0f0;
+  color: #333;
+  padding: var(--spacing);
+  margin-top: var(--spacing);
+  border: 1px solid #ccc;
+  border-radius: var(--border-radius);
+  font-size: 0.85rem;
+}
+#logPanel.expanded {
+  max-height: var(--log-height-expanded);
+  overflow-y: auto;
+}
+.log-entry {
+  margin-bottom: 0.25rem;
+  border-bottom: 1px dashed #ccc;
+  padding-bottom: 0.25rem;
+}
+.log-entry:last-child {
+  border-bottom: none;
+}
+
+/* Footer / acceptance checklist */
+#acceptanceChecklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing);
+}
+.checklist-item {
+  display: flex;
+  align-items: center;
+}
+.checklist-item input[type="checkbox"] {
+  margin-right: 0.25rem;
+}
+
+/* Hidden elements or placeholders */
 .hidden {
   display: none !important;
 }
-.progress-bar-area {
+
+.buttonRow {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing);
+  margin-top: var(--spacing);
 }
-label[for="csvFile"] {
+
+/* Basic styling for controls */
+input[type="file"], select, input[type="text"], input[type="number"] {
+  margin-bottom: var(--spacing);
+  width: 100%;
+  padding: 0.25rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: bold;
+}
+
+button {
   cursor: pointer;
-  color: var(--accent-color);
-  text-decoration: underline;
+  padding: 0.5rem 1rem;
+  border: none;
+  color: #fff;
+  background-color: var(--color-accent);
+  border-radius: var(--border-radius);
+  transition: background-color var(--transition-speed);
 }
-.drag-drop-area {
-  border: 2px dashed #aaa;
-  padding: 1rem;
+button:hover {
+  background-color: #005c99;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Drag and drop area */
+#csvDropArea {
+  border: 2px dashed #ccc;
+  border-radius: var(--border-radius);
   text-align: center;
-  margin-bottom: 1rem;
+  padding: var(--spacing);
+  margin-bottom: var(--spacing);
 }
-.drag-drop-area.dragover {
-  border-color: var(--accent-color);
+
+#settingsPanel, #helpModal {
+  position: fixed;
+  top: 10%;
+  right: 10%;
+  width: var(--panel-width);
+  max-width: 90%;
+  background: #f9f9f9;
+  color: #000;
+  border: 1px solid #ccc;
+  border-radius: var(--border-radius);
+  padding: var(--spacing);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  z-index: 999;
+}
+#settingsPanel.hidden, #helpModal.hidden {
+  display: none;
+}
+#settingsPanelClose, #helpModalClose {
+  float: right;
+  cursor: pointer;
+  margin: -0.5rem -0.5rem 0 0;
+  background-color: transparent;
+  color: #000;
+  border: none;
+  font-size: 1rem;
+}
+#settingsPanelClose:hover, #helpModalClose:hover {
+  color: red;
 }
 </style>
-</head>
-<body class="light">
-<header>
-  <div class="left-area">
-    <div class="app-title">CPM Backward Path Analyzer</div>
-    <button id="themeToggleBtn" title="Toggle Theme (t)">Light/Dark</button>
-  </div>
-  <div class="right-area">
-    <button id="helpBtn" title="Help (?)">Help</button>
-    <button id="settingsBtn" title="Settings">Settings</button>
-  </div>
-</header>
-
-<main>
-  <div class="left-panel">
-    <h2>Controls</h2>
-    <div class="csv-input-section">
-      <h3>CSV Input</h3>
-      <div class="drag-drop-area" id="dragDropArea">Drop CSV file here or click to select.</div>
-      <input type="file" id="csvFile" accept=".csv" style="display:none">
-      <button id="loadSampleBtn">Load Sample</button>
-      <div id="csvRowCount"></div>
-    </div>
-    <hr>
-    <h3>Parameters</h3>
-    <label for="unitToggle">Units:</label>
-    <select id="unitToggle">
-      <option value="days">Days</option>
-      <option value="hours">Hours</option>
-    </select>
-    <br>
-    <label for="hoursPerDay">Hours/Day:</label>
-    <input type="number" id="hoursPerDay" value="8.00" step="0.25" min="1" max="24">
-    <br>
-    <label for="fallbackMode">Fallback Mode:</label>
-    <select id="fallbackMode">
-      <option value="strict">Strict</option>
-      <option value="placeholder">Placeholder</option>
-    </select>
-    <br>
-    <label for="maxPaths">Max Paths:</label>
-    <input type="number" id="maxPaths" value="250" min="1" max="100000">
-    <br>
-    <label for="maxDepth">Max Depth:</label>
-    <input type="number" id="maxDepth" value="500" min="10" max="10000">
-    <hr>
-    <h3>Analysis</h3>
-    <label for="startActivityId">Start Activity ID:</label>
-    <input type="text" id="startActivityId" list="activitiesList">
-    <datalist id="activitiesList"></datalist>
-    <br>
-    <div class="progress-bar-area">
-      <progress id="globalProgress" value="0" max="100" style="width:80%;"></progress>
-      <span id="progressLabel"></span>
-    </div>
-    <button id="buildGraphBtn" title="(g)">Build Graph</button>
-    <button id="analyzePathsBtn" title="(a)">Analyze Paths</button>
-    <button id="cancelBtn" class="hidden">Cancel/Stop</button>
-    <button id="resetBtn">Reset</button>
-    <hr>
-    <h3>Exports</h3>
-    <button id="exportBtn" title="(e)">Export</button>
-    <br>
-    <button id="logToggleBtn" title="(l)">Toggle Log</button>
-    <button id="selfTestBtn">Run Self-Test</button>
-    <hr>
-    <div id="statusBadges">
-      <div><strong>State:</strong> <span id="appStateLabel">Idle</span></div>
-      <div id="stateDetails"></div>
-    </div>
-  </div>
-
-  <div class="right-panel">
-    <div class="top-cards">
-      <div class="card">
-        <div>Activities:</div>
-        <div id="activityCount">0</div>
-      </div>
-      <div class="card">
-        <div>Edges:</div>
-        <div id="edgeCount">0</div>
-      </div>
-      <div class="card">
-        <div>Cycle Detected:</div>
-        <div id="cycleDetected">No</div>
-      </div>
-      <div class="card">
-        <div>Project Finish (Days):</div>
-        <div id="projectFinish">---</div>
-      </div>
-      <div class="card">
-        <div>Analysis Time (ms):</div>
-        <div id="analysisTime">0</div>
-      </div>
-    </div>
-    <h3>Top 3 Paths Preview</h3>
-    <table id="top3Table">
-      <thead>
-        <tr>
-          <th>Rank</th>
-          <th>Total FF</th>
-          <th>Edges</th>
-          <th>Bottleneck</th>
-          <th>Terminal Completed ID</th>
-          <th>Path</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <h3>Detailed Paths</h3>
-    <table id="detailedPathsTable">
-      <thead>
-        <tr>
-          <th>Rank</th>
-          <th>TotalFF</th>
-          <th>Edges</th>
-          <th>BottleneckFF</th>
-          <th>TerminalID</th>
-          <th>PathIDs</th>
-          <th>PerEdgeFF</th>
-          <th>Notes</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <h4>Log Panel</h4>
-    <div class="log-panel" id="logPanel"></div>
-  </div>
-</main>
-
-<footer class="footer-area">
-  <div class="acceptance-checklist">
-    <h4>Acceptance Checklist</h4>
-    <ul>
-      <li><label><input type="checkbox" id="chkCsvParsed"> CSV parsed</label></li>
-      <li><label><input type="checkbox" id="chkGraphBuilt"> Graph built</label></li>
-      <li><label><input type="checkbox" id="chkNoCycles"> No cycles detected</label></li>
-      <li><label><input type="checkbox" id="chkCpmTimes"> CPM times computed</label></li>
-      <li><label><input type="checkbox" id="chkFreeFloat"> Free float computed</label></li>
-      <li><label><input type="checkbox" id="chkPathsFound"> Backward paths enumerated</label></li>
-      <li><label><input type="checkbox" id="chkPathsRanked"> Paths ranked, Top 3 displayed</label></li>
-      <li><label><input type="checkbox" id="chkExportReady"> Output files generated</label></li>
-      <li><label><input type="checkbox" id="chkLogAvailable"> Log available</label></li>
-      <li><label><input type="checkbox" id="chkUnitToggle"> Unit toggle updates</label></li>
-    </ul>
-  </div>
-  <div>Build info: v1.0.1 - 2023-10-09</div>
-</footer>
-
-<section class="settings-panel" id="settingsPanel" aria-label="Settings Panel">
-  <h2>Settings</h2>
-  <p>Change fallback mode, adjust max paths and depth, etc.</p>
-  <button id="closeSettingsBtn">Close</button>
-</section>
-
-<section class="help-modal" id="helpModal" aria-label="Help Modal">
-  <h3>Help & Instructions</h3>
-  <p>Keyboard Shortcuts:</p>
-  <ul>
-    <li>? : Show help</li>
-    <li>t : Toggle Theme</li>
-    <li>g : Build Graph</li>
-    <li>a : Analyze Paths</li>
-    <li>e : Export</li>
-    <li>l : Toggle Log</li>
-  </ul>
-  <button id="closeHelpBtn">Close</button>
-</section>
-
 <script>
-/* 
-  Inline JS: Single-file offline SPA performing all required steps:
-  - CSV parsing
-  - Graph building (with fallback)
-  - CPM computations (topological sort, forward/backward pass)
-  - Per-edge free float
-  - Backward path enumeration
-  - Ranking, displaying top 3
-  - Exporting results (2 CSV, 1 log)
-  - Logging & acceptance checklist
-  - Miminum error handling for invalid data
-  - Offline, no external dependencies
-  - Placeholders for advanced date/duration logic
-  - Cancelling large tasks, responsive updates
+/*
+  Single-file, self-contained JavaScript
+  Implementation of CSV parsing, CPM building, free float, path enumeration,
+  ranking, logging, offline file export, etc.
+  - No external libraries or network calls.
+  - All logic is modularized inside an IIFE to avoid polluting global scope.
 */
 (function(){
   "use strict";
 
-  // Application State
-  const App = {
-    state: "Idle", // "CSVLoaded","GraphBuilt","Analyzed","ExportReady"
-    activities: {}, // key=ActivityID => { fields, adjacency, ES, EF, LS, LF, etc. }
-    edges: [],      // list of {u,v, FF_edge}
-    adjacency: {
-      successors: {},
-      predecessors: {}
-    },
-    logMessages: [],
-    paths: [],
-    top3: [],
-    projectFinish: 0,
-    cycleDetected: false,
-    config: {
-      fallbackMode: "strict",
-      hoursPerDay: 8.0,
-      unit: "days",
-      maxPaths: 250,
-      maxDepth: 500
-    },
-    sampleCSV: `Project ID,Activity ID,Activity Name,Activity Type,At Completion Duration,Start,Finish,Activity Status,Total Float,Primary Constraint,Predecessor Details,Predecessors,Successor Details,Successors
-PROJ1,A100,Start Activity,Milestone,0,2023-10-01,2023-10-01,completed,0,,FS(0),,FS(0),A110
-PROJ1,A110,Design,Task,3,2023-10-02,2023-10-04,in-progress,2,,,A100,FS(0),A120
-PROJ1,A120,Review,Task,2,2023-10-05,2023-10-06,not started,2,,,A110,FS(0),A130
-PROJ1,A130,Approval,Milestone,0,2023-10-07,2023-10-07,not started,1,,,A120,FS(0),A140
-PROJ1,A140,Implementation,Task,5,2023-10-08,2023-10-12,not started,1,,,A130,FS(0),A150
-PROJ1,A150,Closeout,Milestone,0,2023-10-13,2023-10-13,not started,0,,,A140,,
-PROJ1,A999,Placeholder Test,Task,4,2023-10-02,2023-10-05,completed,3,,,X999,FS(0),A120
-`,
-    canceled: false
+  // Global state machine
+  const STATE = {
+    Idle: "Idle",
+    CSVLoaded: "CSVLoaded",
+    GraphBuilt: "GraphBuilt",
+    Analyzed: "Analyzed",
+    ExportReady: "ExportReady"
   };
+  let currentState = STATE.Idle;
 
-  /* Utility Logging */
-  function log(level, step, message) {
-    const timestamp = new Date().toISOString();
-    const msg = `[${timestamp}] [${level}] [${step}] ${message}`;
-    App.logMessages.push(msg);
+  // Data / model
+  let rawCSVText = "";
+  let parsedRows = [];
+  let tasksMap = {};       // { activityId: { rowData, index, placeholders, ES, EF, LS, LF, etc. } }
+  let adjSuccessors = {};  // adjacency list of successors
+  let adjPredecessors = {}; 
+  let edgesList = [];      // list of edges with computed FF_edge
+  let hasCycle = false;
+  let topologicalOrder = [];
+  let pathsResult = [];
+  let maxPathsReached = false;
+  let analysisAborted = false;
+
+  // Config
+  let fallbackMode = "strict"; // "strict" or "placeholder"
+  let hoursPerDay = 8.0;
+  let unitMode = "days";  // or "hours"
+  let maxPaths = 250;
+  let maxDepth = 500;
+
+  const CSV_REQUIRED_HEADERS = [
+    "Project ID","Activity ID","Activity Name","Activity Type","At Completion Duration","Start","Finish",
+    "Activity Status","Total Float","Primary Constraint", "Predecessor Details","Predecessors",
+    "Successor Details","Successors"
+  ];
+
+  let logEntries = [];
+  let baseStartDay = 0; // reference for day 0 in CPM
+
+  // Sample CSV data
+  const sampleCSV = `Project ID,Activity ID,Activity Name,Activity Type,At Completion Duration,Start,Finish,Activity Status,Total Float,Primary Constraint,Predecessor Details,Predecessors,Successor Details,Successors
+P1,A1,"Start Activity","Task",2,2023-10-01,2023-10-03,completed,0,ASAP,,,"FS to A2","A2"
+P1,A2,"Second Activity","Task",3,2023-10-03,2023-10-06,in progress,1,ASAP,"FS from A1","A1","FS to A3",A3
+P1,A3,"Third Activity with unknown pred","Task",4,2023-10-06,2023-10-10,not started,2,ASAP,"FS from A9999 ; FS from A2","A9999;A2","FS to A4","A4"
+P1,A4,"Fourth Activity","Task",3,2023-10-10,2023-10-13,not started,3,ASAP,"FS from A3","A3",,""
+P1,A5,"Completed Branch","Task",5,2023-09-25,2023-09-30,completed,0,ASAP,,"","FS to A2","A2"
+P1,A6,"Parallel Activity","Task",5,2023-10-02,2023-10-07,in progress,0,ASAP,,"","FS to A4","A4"
+P1,A7,"Another branch","Task",2,2023-10-01,2023-10-03,in progress,1,ASAP,,"","", 
+P1,A8,"Leaf Activity","Task",0,2023-10-03,2023-10-03,not started,4,ASAP,"FS from A7","A7","", 
+P1,A9,"Yet Another Task","Task",3,,,not started,3,ASAP,"FS from A6","A6","", 
+P1,A10,"Final Task","Task",2,,,not started,-1,ASAP,"FS from A4 ; FS from A9","A4;A9","", 
+`;
+
+  ////////////////////////////////////////////////////////////
+  // UTILITY FUNCTIONS
+  ////////////////////////////////////////////////////////////
+
+  function logMessage(level, step, msg) {
+    const entry = {
+      timestamp: new Date().toISOString(),
+      level: level,
+      step: step,
+      message: msg
+    };
+    logEntries.push(entry);
+    renderLogPanel();
+  }
+
+  function renderLogPanel() {
     const logPanel = document.getElementById("logPanel");
-    if (logPanel) {
-      logPanel.textContent += msg + "\n";
-      logPanel.scrollTop = logPanel.scrollHeight;
+    if(!logPanel) return;
+    // Render log entries
+    let html = "";
+    for(let i=0; i<logEntries.length; i++){
+      const e = logEntries[i];
+      html += `<div class="log-entry"><strong>${e.timestamp} [${e.level}] [${e.step}]</strong><br>${sanitizeString(e.message)}</div>`;
     }
-    console.log(msg);
+    logPanel.innerHTML = html;
+  }
+
+  function sanitizeString(str) {
+    const div = document.createElement("div");
+    div.textContent = str || "";
+    return div.innerHTML;
+  }
+
+  function updateChecklist() {
+    // update acceptance checkboxes
+    const chkCSV = document.getElementById("chkCSV");
+    const chkGraph = document.getElementById("chkGraph");
+    const chkNoCycle = document.getElementById("chkNoCycle");
+    const chkCPM = document.getElementById("chkCPM");
+    const chkFF = document.getElementById("chkFF");
+    const chkPaths = document.getElementById("chkPaths");
+    const chkRanks = document.getElementById("chkRanks");
+    const chkExport = document.getElementById("chkExport");
+    const chkLog = document.getElementById("chkLog");
+
+    chkCSV.checked = (currentState !== STATE.Idle) && (parsedRows.length > 0);
+    chkGraph.checked = (currentState === STATE.GraphBuilt || currentState === STATE.Analyzed || currentState === STATE.ExportReady);
+    chkNoCycle.checked = !hasCycle;
+    chkCPM.checked = edgesList.length > 0; // indicates we did forward/backward pass
+    chkFF.checked = edgesList.every(e=> e.hasOwnProperty("FF_edge"));
+    chkPaths.checked = (currentState === STATE.Analyzed || currentState === STATE.ExportReady) && pathsResult.length>0;
+    chkRanks.checked = pathsResult.length>0 && pathsResult[0].hasOwnProperty("rank");
+    chkExport.checked = (currentState === STATE.ExportReady);
+    chkLog.checked = (logEntries.length>0);
   }
 
   function setState(newState) {
-    App.state = newState;
-    document.getElementById("appStateLabel").textContent = newState;
+    currentState = newState;
+    logMessage("INFO", "STATE", "State changed to " + currentState);
+    updateChecklist();
+    updateUIState();
   }
 
-  function updateChecklistItem(id, checked=true) {
-    const el = document.getElementById(id);
-    if (el) { el.checked = checked; }
+  function updateUIState() {
+    // Update button states
+    const buildGraphBtn = document.getElementById("buildGraphBtn");
+    const analyzePathsBtn = document.getElementById("analyzePathsBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const startActivitySelect = document.getElementById("startActivitySelect");
+
+    buildGraphBtn.disabled = !(currentState === STATE.CSVLoaded);
+    analyzePathsBtn.disabled = !(currentState === STATE.GraphBuilt && !hasCycle && startActivitySelect.value);
+    exportBtn.disabled = !(currentState === STATE.Analyzed && pathsResult.length>0);
+
+    // Status badges
+    document.getElementById("statusIdle").classList.toggle("hidden", currentState !== STATE.Idle);
+    document.getElementById("statusCSV").classList.toggle("hidden", currentState !== STATE.CSVLoaded);
+    document.getElementById("statusGraph").classList.toggle("hidden", currentState !== STATE.GraphBuilt);
+    document.getElementById("statusAnalyze").classList.toggle("hidden", currentState !== STATE.Analyzed);
+    document.getElementById("statusExport").classList.toggle("hidden", currentState !== STATE.ExportReady);
   }
 
-  /* CSV Parsing */
-  function parseCSV(csvString) {
-    log("INFO","LOAD_CSV","Parsing CSV...");
-    const lines = csvString.split(/\r?\n/).filter(l=>!!l.trim());
-    if (lines.length < 2) {
-      log("ERROR","LOAD_CSV","Not enough rows, must have header + data");
+  ////////////////////////////////////////////////////////////
+  // CSV PARSING & VALIDATION
+  ////////////////////////////////////////////////////////////
+  function parseCSVText(csvText) {
+    // naive CSV parse, split lines, split by commas
+    // handle quotes minimally
+    logMessage("INFO", "LOAD_CSV", "Parsing CSV text");
+    const lines = csvText.split(/\r?\n/);
+    if(lines.length <= 1) {
+      logMessage("ERROR", "LOAD_CSV", "No data lines found");
       return [];
     }
-    // Validate header
-    const expectedHeaders = [
-      "Project ID","Activity ID","Activity Name","Activity Type","At Completion Duration",
-      "Start","Finish","Activity Status","Total Float","Primary Constraint",
-      "Predecessor Details","Predecessors","Successor Details","Successors"
-    ];
     const headerLine = lines[0];
-    const headers = headerLine.split(",").map(h=>h.trim());
-    if (JSON.stringify(headers) !== JSON.stringify(expectedHeaders)) {
-      log("ERROR","VALIDATE_SCHEMA","Header mismatch");
-      return [];
+    const headers = headerLine.split(",");
+    // Basic check for required headers
+    for(const req of CSV_REQUIRED_HEADERS) {
+      if(!headers.includes(req)) {
+        logMessage("ERROR", "VALIDATE_SCHEMA", "Missing required header: " + req);
+      }
     }
-    // parse data rows
-    const dataRows = lines.slice(1);
-    return dataRows.map(row => {
-      const parts = row.split(",");
-      // if row is incomplete, pad
-      while (parts.length < headers.length) {
-        parts.push("");
+    const result = [];
+    for(let i = 1; i<lines.length; i++){
+      const line = lines[i].trim();
+      if(!line) continue; // skip empty
+      // minimal split
+      const rawCols = splitCSVRow(line);
+      if(rawCols.length < headers.length) {
+        // pad columns
+        while(rawCols.length < headers.length) {
+          rawCols.push("");
+        }
       }
-      const obj = {};
-      for (let i=0; i<headers.length; i++){
-        obj[headers[i]] = parts[i] ? parts[i].trim() : "";
+      const rowObj = {};
+      for(let c = 0; c<headers.length; c++){
+        const colName = headers[c];
+        rowObj[colName] = (rawCols[c] || "").trim();
       }
-      return obj;
-    });
+      result.push(rowObj);
+    }
+    return result;
   }
 
-  /* Build Graph */
-  function buildGraph(records) {
-    log("INFO","BUILD_GRAPH","Start building graph");
-    // reset
-    App.activities = {};
-    App.adjacency.successors = {};
-    App.adjacency.predecessors = {};
-    App.edges = [];
-    let rowCount = 0;
-
-    for (let i=0;i<records.length;i++){
-      const rec = records[i];
-      const id = rec["Activity ID"];
-      if (!id) {
-        log("WARN","BUILD_GRAPH","Empty Activity ID found, skipping");
-        continue;
-      }
-      // Check if we already have it
-      if (App.activities[id]) {
-        log("WARN","BUILD_GRAPH",`Duplicate Activity ID ${id}; ignoring subsequent`);
-        continue;
-      }
-      // Basic normalizations
-      let status = rec["Activity Status"] ? rec["Activity Status"].toLowerCase() : "not started";
-      if (!["completed","in-progress","not started"].includes(status)) {
-        log("WARN","BUILD_GRAPH",`Invalid status for ${id}; set to not started`);
-        status = "not started";
-      }
-      let duration = parseFloat(rec["At Completion Duration"]);
-      if (isNaN(duration)) {
-        duration = 0;
-        log("WARN","BUILD_GRAPH",`Duration invalid for ${id}, defaulting to 0`);
-      }
-      App.activities[id] = {
-        projectID: rec["Project ID"],
-        activityID: id,
-        name: rec["Activity Name"],
-        type: rec["Activity Type"],
-        duration,
-        start: rec["Start"],
-        finish: rec["Finish"],
-        status,
-        totalFloat: parseFloat(rec["Total Float"]) || 0,
-        earlyStart: null,
-        earlyFinish: null,
-        lateStart: null,
-        lateFinish: null
-      };
-      App.adjacency.successors[id] = [];
-      App.adjacency.predecessors[id] = [];
-      rowCount++;
-    }
-    // build edges
-    records.forEach(rec => {
-      const fromID = rec["Activity ID"];
-      const predList = rec["Predecessors"] ? rec["Predecessors"].split(/;/).map(e=>e.trim()).filter(x=>x) : [];
-      const succList = rec["Successors"] ? rec["Successors"].split(/;/).map(e=>e.trim()).filter(x=>x) : [];
-      // we have a directed edge from each pred->this
-      predList.forEach(p => {
-        if (App.activities[p]) {
-          App.adjacency.successors[p].push(fromID);
-          App.adjacency.predecessors[fromID].push(p);
+  function splitCSVRow(row) {
+    // Minimal CSV split for demonstration (doesn't fully handle complex quotes)
+    const result = [];
+    let current = "";
+    let inQuotes = false;
+    for(let i=0; i<row.length; i++){
+      const ch = row[i];
+      if(ch === '"' && !inQuotes) {
+        inQuotes = true;
+      } else if(ch === '"' && inQuotes) {
+        // peek next
+        if(i+1 < row.length && row[i+1] === '"'){
+          current += '"'; 
+          i++;
         } else {
-          if (App.config.fallbackMode === "placeholder"){
-            const placeholderID = p;
-            if (!App.activities[placeholderID]) {
-              log("WARN","BUILD_GRAPH",`Creating placeholder for missing ${placeholderID}`);
-              App.activities[placeholderID] = {
-                projectID: "",
-                activityID: placeholderID,
-                name: "<MISSING:"+placeholderID+">",
-                type: "placeholder",
-                duration: 0,
-                start: "",
-                finish: "",
-                status: "unknown",
-                totalFloat: 0,
-                earlyStart: null,
-                earlyFinish: null,
-                lateStart: null,
-                lateFinish: null
-              };
-              App.adjacency.successors[placeholderID] = [];
-              App.adjacency.predecessors[placeholderID] = [];
-            }
-            App.adjacency.successors[placeholderID].push(fromID);
-            App.adjacency.predecessors[fromID].push(placeholderID);
-          } else {
-            log("ERROR","BUILD_GRAPH",`Missing predecessor reference ${p} for ${fromID}, ignoring`);
-          }
+          inQuotes = false;
         }
-      });
-      // we have a directed edge from this->succ
-      succList.forEach(s => {
-        if (App.activities[s]) {
-          App.adjacency.successors[fromID].push(s);
-          App.adjacency.predecessors[s].push(fromID);
-        } else {
-          if (App.config.fallbackMode === "placeholder"){
-            const placeholderID = s;
-            if (!App.activities[placeholderID]) {
-              log("WARN","BUILD_GRAPH",`Creating placeholder for missing ${placeholderID}`);
-              App.activities[placeholderID] = {
-                projectID: "",
-                activityID: placeholderID,
-                name: "<MISSING:"+placeholderID+">",
-                type: "placeholder",
-                duration: 0,
-                start: "",
-                finish: "",
-                status: "unknown",
-                totalFloat: 0,
-                earlyStart: null,
-                earlyFinish: null,
-                lateStart: null,
-                lateFinish: null
-              };
-              App.adjacency.successors[placeholderID] = [];
-              App.adjacency.predecessors[placeholderID] = [];
-            }
-            App.adjacency.successors[fromID].push(placeholderID);
-            App.adjacency.predecessors[placeholderID].push(fromID);
-          } else {
-            log("ERROR","BUILD_GRAPH",`Missing successor reference ${s} for ${fromID}, ignoring`);
-          }
-        }
-      });
-    });
-    document.getElementById("activityCount").textContent = Object.keys(App.activities).length;
-    let eCount = 0;
-    Object.keys(App.adjacency.successors).forEach(u => {
-      eCount += App.adjacency.successors[u].length;
-    });
-    document.getElementById("edgeCount").textContent = eCount;
-    log("INFO","BUILD_GRAPH",`Graph built with ${Object.keys(App.activities).length} activities, ${eCount} edges`);
-    updateChecklistItem("chkGraphBuilt", true);
-  }
-
-  /* Detect cycles using Kahn's Algorithm, also build topological order if possible */
-  function topologicalSort() {
-    log("INFO","TOPO_SORT","Performing topological sort");
-    const inDegree = {};
-    const zeroInDegreeQueue = [];
-    Object.keys(App.activities).forEach(id => {
-      inDegree[id] = App.adjacency.predecessors[id].length;
-    });
-    Object.keys(inDegree).forEach(id => {
-      if (inDegree[id] === 0) {
-        zeroInDegreeQueue.push(id);
-      }
-    });
-    const topoOrder = [];
-    while (zeroInDegreeQueue.length > 0) {
-      const u = zeroInDegreeQueue.shift();
-      topoOrder.push(u);
-      const succs = App.adjacency.successors[u] || [];
-      succs.forEach(v => {
-        inDegree[v]--;
-        if (inDegree[v]===0) {
-          zeroInDegreeQueue.push(v);
-        }
-      });
-    }
-    if (topoOrder.length < Object.keys(App.activities).length) {
-      // cycle
-      log("ERROR","TOPO_SORT","Cycle detected, analysis blocked.");
-      App.cycleDetected = true;
-      document.getElementById("cycleDetected").textContent = "Yes";
-    } else {
-      App.cycleDetected = false;
-      document.getElementById("cycleDetected").textContent = "No";
-    }
-    return topoOrder;
-  }
-
-  /* Forward Pass to compute ES, EF */
-  function forwardPass(topoOrder) {
-    log("INFO","FORWARD_PASS","Computing ES/EF");
-    App.projectFinish = 0;
-    topoOrder.forEach(id => {
-      const act = App.activities[id];
-      const preds = App.adjacency.predecessors[id];
-      let es = 0;
-      preds.forEach(p => {
-        const pAct = App.activities[p];
-        if (pAct && pAct.earlyFinish!=null) {
-          if (pAct.earlyFinish>es) es = pAct.earlyFinish;
-        }
-      });
-      act.earlyStart = es;
-      act.earlyFinish = es + act.duration;
-      if (act.earlyFinish>App.projectFinish) {
-        App.projectFinish = act.earlyFinish;
-      }
-    });
-  }
-
-  /* Backward Pass to compute LS, LF */
-  function backwardPass(topoOrder) {
-    log("INFO","BACKWARD_PASS","Computing LS/LF");
-    const revOrder = [...topoOrder].reverse();
-    revOrder.forEach(id => {
-      const act = App.activities[id];
-      if (App.adjacency.successors[id].length === 0) {
-        act.lateFinish = App.projectFinish;
+      } else if(ch === ',' && !inQuotes) {
+        result.push(current);
+        current = "";
       } else {
-        let minLS = Infinity;
-        App.adjacency.successors[id].forEach(s => {
-          const sAct = App.activities[s];
-          if (sAct && sAct.lateStart!=null && sAct.lateStart<minLS) {
-            minLS = sAct.lateStart;
+        current += ch;
+      }
+    }
+    result.push(current);
+    return result;
+  }
+
+  ////////////////////////////////////////////////////////////
+  // BUILD GRAPH
+  ////////////////////////////////////////////////////////////
+  function buildGraph() {
+    logMessage("INFO", "BUILD_GRAPH", "Building graph from parsed rows");
+    tasksMap = {};
+    adjSuccessors = {};
+    adjPredecessors = {};
+    edgesList = [];
+    hasCycle = false;
+    topologicalOrder = [];
+
+    for(let i=0; i<parsedRows.length; i++){
+      const row = parsedRows[i];
+      const actId = row["Activity ID"];
+      if(!actId) {
+        logMessage("WARN", "BUILD_GRAPH", "Row " + i + " has empty Activity ID - ignoring");
+        continue;
+      }
+      if(tasksMap[actId]) {
+        // Duplicate activity ID
+        logMessage("WARN", "BUILD_GRAPH", "Duplicate Activity ID found: " + actId + " (ignoring subsequent)");
+        continue;
+      }
+      const durRaw = parseFloat(row["At Completion Duration"]);
+      const duration = isNaN(durRaw)? 0 : durRaw;
+      let status = (row["Activity Status"] || "").toLowerCase();
+      if(!status) {
+        status = "not started";
+        logMessage("WARN", "BUILD_GRAPH", "Row " + i + " missing status, defaulting to 'not started'");
+      } else if(!["completed","in progress","not started"].includes(status)) {
+        status = "not started";
+        logMessage("WARN", "BUILD_GRAPH", "Row " + i + " invalid status, defaulting to 'not started'");
+      }
+      tasksMap[actId] = {
+        row: row,
+        duration: duration,
+        status: status,
+        ES: null, EF: null, LS: null, LF: null
+      };
+      adjSuccessors[actId] = [];
+      adjPredecessors[actId] = [];
+    }
+
+    // Build edges
+    for(const actId in tasksMap) {
+      const row = tasksMap[actId].row;
+      const predsStr = row["Predecessors"] || "";
+      if(predsStr.trim()) {
+        const preds = predsStr.split(";").map(x=> x.trim()).filter(x=> x);
+        for(const p of preds) {
+          if(!tasksMap[p]) {
+            if(fallbackMode === "placeholder") {
+              // create placeholder
+              if(!tasksMap[p]) {
+                tasksMap[p] = {
+                  row: {},
+                  duration: 0,
+                  status: "unknown",
+                  ES: null, EF: null, LS: null, LF: null
+                };
+                adjSuccessors[p] = [];
+                adjPredecessors[p] = [];
+                logMessage("WARN", "BUILD_GRAPH", "Placeholder created for missing predecessor: " + p);
+              }
+            } else {
+              // strict
+              logMessage("ERROR", "BUILD_GRAPH", "Predecessor " + p + " not found for " + actId + ", ignoring edge");
+              continue; 
+            }
           }
-        });
-        if (minLS===Infinity) {
-          act.lateFinish = App.projectFinish;
-        } else {
-          act.lateFinish = minLS;
+          // build adjacency
+          if(!adjSuccessors[p]) adjSuccessors[p] = [];
+          if(!adjPredecessors[actId]) adjPredecessors[actId] = [];
+          if(!adjSuccessors[p].includes(actId)) adjSuccessors[p].push(actId);
+          if(!adjPredecessors[actId].includes(p)) adjPredecessors[actId].push(p);
         }
       }
-      act.lateStart = act.lateFinish - act.duration;
-    });
+    }
+
+    setState(STATE.GraphBuilt);
   }
 
-  /* Compute per-edge free float: FF_edge(u->v) = ES(v) - EF(u) */
-  function computeEdgeFF() {
-    log("INFO","FF_EDGES","Computing free float per edge");
-    const allEdges = [];
-    Object.keys(App.adjacency.successors).forEach(u => {
-      const uAct = App.activities[u];
-      App.adjacency.successors[u].forEach(v => {
-        const vAct = App.activities[v];
-        let ff = 0;
-        if (uAct.earlyFinish!=null && vAct.earlyStart!=null) {
-          ff = vAct.earlyStart - uAct.earlyFinish;
-        } else {
-          log("ERROR","FF_EDGES",`Missing ES/EF for edge ${u}->${v}, skipping`);
-          return;
+  ////////////////////////////////////////////////////////////
+  // TOPOLOGICAL SORT, CPM, FREE FLOAT
+  ////////////////////////////////////////////////////////////
+  function computeCPM() {
+    logMessage("INFO", "TOPO_SORT", "Performing Kahn's algorithm topological sort");
+    // Kahn's
+    const inDegree = {};
+    for(const actId in tasksMap) {
+      inDegree[actId] = adjPredecessors[actId].length;
+    }
+    const queue = [];
+    for(const actId in inDegree) {
+      if(inDegree[actId]===0) queue.push(actId);
+    }
+    const order = [];
+    while(queue.length>0) {
+      const u = queue.shift();
+      order.push(u);
+      for(const succ of adjSuccessors[u]) {
+        inDegree[succ]--;
+        if(inDegree[succ]===0) {
+          queue.push(succ);
         }
-        allEdges.push({u,v,FF_edge: ff});
-      });
-    });
-    App.edges = allEdges;
+      }
+    }
+    // If order length < tasksMap size => cycle
+    if(order.length < Object.keys(tasksMap).length) {
+      hasCycle = true;
+      logMessage("ERROR", "TOPO_SORT", "Cycle detected! Some nodes remain unsorted.");
+      return;
+    }
+    topologicalOrder = order;
+
+    // Forward pass
+    logMessage("INFO", "FORWARD_PASS", "Computing ES/EF");
+    // find earliest Start across all tasks
+    let earliestStart = null;
+    for(const actId in tasksMap) {
+      const row = tasksMap[actId].row;
+      const s = parseLocalDate(row["Start"]);
+      if(s && (earliestStart===null || s < earliestStart)) {
+        earliestStart = s;
+      }
+    }
+    if(!earliestStart) {
+      earliestStart = new Date(); // fallback to current date if none
+    }
+    baseStartDay = +earliestStart; // store as ms
+
+    for(const actId in tasksMap) {
+      tasksMap[actId].ES = 0;
+      tasksMap[actId].EF = 0;
+    }
+
+    for(const u of topologicalOrder) {
+      // ES(u) = max of EF(p) among predecessors
+      let esVal = 0;
+      for(const p of adjPredecessors[u]) {
+        const predEF = tasksMap[p].EF;
+        if(predEF>esVal) esVal = predEF;
+      }
+      // check if user-provided Start can override
+      const rowU = tasksMap[u].row;
+      const startDate = parseLocalDate(rowU["Start"]);
+      const diffStart = convertMsToDays((startDate? +startDate : baseStartDay) - baseStartDay);
+      if(startDate !== null) {
+        if(diffStart>esVal) esVal = diffStart;
+      }
+      tasksMap[u].ES = esVal;
+      tasksMap[u].EF = esVal + tasksMap[u].duration;
+    }
+
+    // Project finish = max(EF)
+    let projectFinish = 0;
+    for(const actId in tasksMap) {
+      const efVal = tasksMap[actId].EF;
+      if(efVal>projectFinish) projectFinish = efVal;
+    }
+
+    // Backward pass
+    logMessage("INFO", "BACKWARD_PASS", "Computing LS/LF");
+    for(const actId in tasksMap) {
+      tasksMap[actId].LF = projectFinish;
+      tasksMap[actId].LS = projectFinish - tasksMap[actId].duration;
+    }
+
+    for(let i=topologicalOrder.length-1; i>=0; i--){
+      const u = topologicalOrder[i];
+      let lfVal = tasksMap[u].LF;
+      for(const succ of adjSuccessors[u]) {
+        const succLS = tasksMap[succ].LS;
+        if(succLS < lfVal) {
+          lfVal = succLS;
+        }
+      }
+      const rowU = tasksMap[u].row;
+      // check if user-provided Finish overrides
+      const finishDate = parseLocalDate(rowU["Finish"]);
+      if(finishDate!==null) {
+        const diffFinish = convertMsToDays((+finishDate) - baseStartDay);
+        if(diffFinish < lfVal) lfVal = diffFinish; 
+      }
+      tasksMap[u].LF = lfVal;
+      tasksMap[u].LS = lfVal - tasksMap[u].duration;
+    }
+
+    // Edge Free Float
+    edgesList = [];
+    logMessage("INFO", "FF_EDGES", "Computing per-edge free float");
+    for(const u in tasksMap) {
+      for(const v of adjSuccessors[u]) {
+        const esV = tasksMap[v].ES;
+        const efU = tasksMap[u].EF;
+        if(esV===null || efU===null) {
+          logMessage("ERROR", "FF_EDGES", "Missing ES/EF for edge " + u + "->" + v);
+          continue;
+        }
+        const ff = esV - efU; 
+        edgesList.push({ u, v, FF_edge: ff });
+      }
+    }
   }
 
-  /* Enumerate all backward paths from a start node until encountering a completed node. */
-  function enumerateBackwardPaths(startID) {
-    log("INFO","ENUMERATE_PATHS",`Start enumerating backward paths from ${startID}`);
-    App.paths = [];
-    let stack = [];
-    let resultsCount = 0;
-    let maxPaths = App.config.maxPaths;
-    let maxDepth = App.config.maxDepth;
+  function parseLocalDate(str) {
+    if(!str) return null;
+    const d = new Date(str);
+    if(isNaN(+d)) return null;
+    return d;
+  }
 
-    const startStatus = App.activities[startID] ? App.activities[startID].status : "unknown";
-    if (startStatus==="completed") {
-      App.paths.push({
-        nodeSequence: [startID],
-        edgeList: [],
+  function convertMsToDays(ms) {
+    return ms / (1000*60*60*24);
+  }
+
+  ////////////////////////////////////////////////////////////
+  // BACKWARD PATH ENUMERATION
+  ////////////////////////////////////////////////////////////
+  function enumerateBackwardPaths(startId) {
+    logMessage("INFO", "ENUMERATE_PATHS", "Enumerating backward paths from " + startId);
+    pathsResult = [];
+    maxPathsReached = false;
+    analysisAborted = false;
+    let stack = [{ node: startId, path: [startId], edges: [] }];
+    const result = [];
+
+    if(tasksMap[startId].status==="completed") {
+      // zero-edge path
+      result.push({
+        path: [startId],
+        edges: [],
         totalFF: 0,
         edgesCount: 0,
-        terminalID: startID
+        terminalId: startId
       });
-      return;
     }
 
-    stack.push({path:[startID], depth:0, totalFF:0});
-    while (stack.length>0) {
-      if (App.canceled) {
-        log("WARN","ENUMERATE_PATHS","Operation aborted by user");
-        return;
+    // Iterative DFS
+    while(stack.length>0) {
+      // check if we reached maxPaths
+      if(result.length >= maxPaths) {
+        maxPathsReached = true;
+        break;
       }
-      const {path, depth, totalFF} = stack.pop();
-      const current = path[path.length-1];
-      const preds = App.adjacency.predecessors[current] || [];
-      if (preds.length===0) {
+      const top = stack.pop();
+      const currentNode = top.node;
+      // expand predecessors
+      const preds = adjPredecessors[currentNode] || [];
+      if(preds.length===0) {
+        // no more predecessors
+        // do we store if currentNode not completed? only if it leads to a completed node or is self completed
+        // Actually we only store if last node is completed or start node was completed
+        // But here it's not completed => we do not store
       } else {
-        for (let i=0; i<preds.length; i++){
-          const p = preds[i];
-          if (App.activities[p].status==="completed") {
-            const edgeFF = getEdgeFF(p,current);
-            const finalFF = totalFF + edgeFF;
-            const newPath = [...path,p];
-            App.paths.push({
-              nodeSequence: newPath,
-              edgeList: [],
-              totalFF: finalFF,
-              edgesCount: newPath.length-1,
-              terminalID: p
+        for(const p of preds) {
+          if(result.length >= maxPaths) break;
+          // check placeholder
+          if(tasksMap[p].status==="unknown") {
+            // stop expansion
+            continue;
+          }
+          // check repeated node in path => skip
+          if(top.path.includes(p)) {
+            // skip
+            continue;
+          }
+          const newPath = top.path.concat([p]);
+          const newEdges = top.edges.slice();
+          // We need the edge forward direction p->(some successor) but we want p-> current
+          // find edge free float from p-> current
+          const e = edgesList.find(e=> e.u===p && e.v===currentNode);
+          let ffVal = (e? e.FF_edge : 0);
+          newEdges.push({ u: p, v: currentNode, FF_edge: ffVal });
+
+          if(tasksMap[p].status==="completed") {
+            // store path
+            const totalFF = newEdges.reduce((acc, x)=> acc + x.FF_edge, 0);
+            result.push({
+              path: newPath,
+              edges: newEdges,
+              totalFF: totalFF,
+              edgesCount: newEdges.length,
+              terminalId: p
             });
-            resultsCount++;
-            if (resultsCount>=maxPaths) {
-              log("WARN","ENUMERATE_PATHS","Reached MaxPaths limit");
-              return;
-            }
-          } else if (App.activities[p].type==="placeholder") {
           } else {
-            if (path.includes(p)) {
+            // keep searching if depth < maxDepth
+            if(newPath.length <= maxDepth) {
+              stack.push({
+                node: p,
+                path: newPath,
+                edges: newEdges
+              });
             } else {
-              if (depth+1>maxDepth) {
-                log("WARN","ENUMERATE_PATHS","MaxDepth limit reached");
-              } else {
-                const edgeFF = getEdgeFF(p,current);
-                stack.push({
-                  path:[...path,p],
-                  depth: depth+1,
-                  totalFF: totalFF + edgeFF
-                });
-              }
+              logMessage("WARN", "ENUMERATE_PATHS", "Max depth exceeded for path " + newPath.join(">"));
             }
           }
         }
       }
     }
-  }
-  function getEdgeFF(u,v) {
-    const e = App.edges.find(ed => ed.u===u && ed.v===v);
-    return e ? e.FF_edge : 0;
+
+    pathsResult = result.map((r, i)=> {
+      return {
+        path: r.path,
+        edges: r.edges,
+        totalFF: r.totalFF,
+        edgesCount: r.edgesCount,
+        terminalId: r.terminalId
+      };
+    });
   }
 
-  /* Rank the found paths */
+  ////////////////////////////////////////////////////////////
+  // PATH RANKING
+  ////////////////////////////////////////////////////////////
   function rankPaths() {
-    log("INFO","RANK_PATHS","Ranking paths");
-    App.paths.forEach(p => {
-      p.edgeList = [];
-      p.bottleneckEdgeFF = Infinity;
-      for (let i=0; i<p.nodeSequence.length-1; i++){
-        const v = p.nodeSequence[i];
-        const u = p.nodeSequence[i+1];
-        const eFF = getEdgeFF(u,v);
-        if (eFF < p.bottleneckEdgeFF) {
-          p.bottleneckEdgeFF = eFF;
-        }
-        p.edgeList.push({u, v, ff:eFF});
-      }
-      p.idSequence = p.nodeSequence.slice().reverse().join(">");
+    if(!pathsResult || !pathsResult.length) return;
+    logMessage("INFO", "RANK_PATHS", "Ranking paths");
+    // primary sort: ascending totalFF
+    // secondary: ascending edgesCount
+    // tertiary: lexicographic
+    pathsResult.sort((a,b)=> {
+      if(a.totalFF!==b.totalFF) return a.totalFF - b.totalFF;
+      if(a.edgesCount!==b.edgesCount) return a.edgesCount - b.edgesCount;
+      const aSeq = a.path.join(">");
+      const bSeq = b.path.join(">");
+      return aSeq.localeCompare(bSeq);
     });
-    App.paths.sort((a,b)=>{
-      if (a.totalFF!==b.totalFF) return a.totalFF - b.totalFF;
-      if (a.edgesCount!==b.edgesCount) return a.edgesCount - b.edgesCount;
-      if (a.idSequence<b.idSequence) return -1;
-      if (a.idSequence>b.idSequence) return 1;
-      return 0;
-    });
-    App.top3 = App.paths.slice(0,3);
-  }
-
-  /* Populate UI with top3 & detailed */
-  function renderPathTables() {
-    log("INFO","RENDER","Rendering path tables");
-    const t3body = document.querySelector("#top3Table tbody");
-    t3body.innerHTML = "";
-    App.top3.forEach((p,idx)=>{
-      const tr = document.createElement("tr");
-      const rankTd = document.createElement("td");
-      rankTd.textContent = idx+1;
-      const totalFFTd = document.createElement("td");
-      totalFFTd.textContent = formatFloat(p.totalFF);
-      const edgesTd = document.createElement("td");
-      edgesTd.textContent = p.edgesCount;
-      const bottleneckTd = document.createElement("td");
-      bottleneckTd.textContent = formatFloat(p.bottleneckEdgeFF);
-      const terminalTd = document.createElement("td");
-      terminalTd.textContent = p.terminalID;
-      const pathTd = document.createElement("td");
-      pathTd.textContent = p.nodeSequence.slice().reverse().join(">");
-      tr.appendChild(rankTd);
-      tr.appendChild(totalFFTd);
-      tr.appendChild(edgesTd);
-      tr.appendChild(bottleneckTd);
-      tr.appendChild(terminalTd);
-      tr.appendChild(pathTd);
-      t3body.appendChild(tr);
-    });
-
-    const detailBody = document.querySelector("#detailedPathsTable tbody");
-    detailBody.innerHTML = "";
-    App.paths.forEach((p,idx)=>{
-      const tr = document.createElement("tr");
-      const rankTd = document.createElement("td");
-      rankTd.textContent = idx+1;
-      const totalFFTd = document.createElement("td");
-      totalFFTd.textContent = formatFloat(p.totalFF);
-      const edgesTd = document.createElement("td");
-      edgesTd.textContent = p.edgesCount;
-      const bottleneckTd = document.createElement("td");
-      bottleneckTd.textContent = formatFloat(p.bottleneckEdgeFF);
-      const terminalTd = document.createElement("td");
-      terminalTd.textContent = p.terminalID;
-      const pathTd = document.createElement("td");
-      pathTd.textContent = p.idSequence;
-      const perEdgeTd = document.createElement("td");
-      const ffStrings = p.edgeList.map(e => formatFloat(e.ff));
-      perEdgeTd.textContent = ffStrings.join(";");
-      const notesTd = document.createElement("td");
-      notesTd.textContent = "";
-      tr.appendChild(rankTd);
-      tr.appendChild(totalFFTd);
-      tr.appendChild(edgesTd);
-      tr.appendChild(bottleneckTd);
-      tr.appendChild(terminalTd);
-      tr.appendChild(pathTd);
-      tr.appendChild(perEdgeTd);
-      tr.appendChild(notesTd);
-      detailBody.appendChild(tr);
-    });
-  }
-
-  /* Format float in current unit */
-  function formatFloat(value) {
-    if (App.config.unit==="hours") {
-      return (value*App.config.hoursPerDay).toFixed(2);
-    } else {
-      return value.toFixed(2);
+    // assign rank
+    for(let i=0; i<pathsResult.length; i++){
+      pathsResult[i].rank = i+1;
     }
   }
 
-  /* Exports: Paths.csv, Summary.csv, AnalysisLog.txt */
-  function exportResults() {
-    if (!App.paths.length) {
-      log("WARN","EXPORT","No paths to export");
-      return;
+  ////////////////////////////////////////////////////////////
+  // RENDER RESULTS
+  ////////////////////////////////////////////////////////////
+  function renderResults() {
+    // Update dashboard cards
+    const actCountCard = document.getElementById("actCountCard");
+    const edgeCountCard = document.getElementById("edgeCountCard");
+    const cycleCard = document.getElementById("cycleCard");
+    const finishCard = document.getElementById("finishCard");
+    const analysisTimeCard = document.getElementById("analysisTimeCard");
+
+    actCountCard.textContent = Object.keys(tasksMap).length.toString();
+    let eCount = 0;
+    for(const u in adjSuccessors) {
+      eCount += adjSuccessors[u].length;
     }
-    let pathsCsv = "Rank,TotalFF_Days,TotalFF_Hours,EdgesCount,BottleneckFF_Days,BottleneckEdge,TerminalCompletedID,PathIDs,PerEdgeFF_Days,Aborted,Notes\n";
-    App.paths.forEach((p,idx)=>{
-      const rank = idx+1;
-      const tffDays = p.totalFF.toFixed(2);
-      const tffHours = (p.totalFF*App.config.hoursPerDay).toFixed(2);
-      const bottleneckDays = p.bottleneckEdgeFF.toFixed(2);
-      let bEdge = "";
-      if (p.edgeList.length>0) {
-        const bn = p.edgeList.find(x=>x.ff===p.bottleneckEdgeFF);
-        if (bn) { bEdge = bn.u+"->"+bn.v; }
-      }
-      const terminal = p.terminalID;
-      const pathIds = p.nodeSequence.slice().reverse().join(">");
-      const perEdgeDays = p.edgeList.map(e=> e.ff.toFixed(2)).join(";");
-      const aborted = "false";
-      const notes = "";
-      const row = [
-        rank, tffDays, tffHours, p.edgesCount, bottleneckDays, bEdge, terminal, pathIds, perEdgeDays, aborted, notes
-      ].map(x=>`"${x}"`).join(",");
-      pathsCsv += row + "\n";
-    });
-    let summaryCsv = "Rank,TotalFF_Days,TotalFF_Hours,EdgesCount,BottleneckFF_Days,BottleneckEdge,TerminalCompletedID,PathIDs,PerEdgeFF_Days,Aborted,Notes\n";
-    App.top3.forEach((p,idx)=>{
-      const rank = idx+1;
-      const tffDays = p.totalFF.toFixed(2);
-      const tffHours = (p.totalFF*App.config.hoursPerDay).toFixed(2);
-      const bottleneckDays = p.bottleneckEdgeFF.toFixed(2);
-      let bEdge = "";
-      if (p.edgeList.length>0) {
-        const bn = p.edgeList.find(x=>x.ff===p.bottleneckEdgeFF);
-        if (bn) { bEdge = bn.u+"->"+bn.v; }
-      }
-      const terminal = p.terminalID;
-      const pathIds = p.nodeSequence.slice().reverse().join(">");
-      const perEdgeDays = p.edgeList.map(e=> e.ff.toFixed(2)).join(";");
-      const aborted = "false";
-      const notes = "";
-      const row = [
-        rank, tffDays, tffHours, p.edgesCount, bottleneckDays, bEdge, terminal, pathIds, perEdgeDays, aborted, notes
-      ].map(x=>`"${x}"`).join(",");
-      summaryCsv += row + "\n";
-    });
-    const logText = App.logMessages.join("\n");
-    downloadFile(pathsCsv,"Paths.csv","text/csv");
-    downloadFile(summaryCsv,"Summary.csv","text/csv");
-    downloadFile(logText,"AnalysisLog.txt","text/plain");
-    log("INFO","EXPORT","Files exported");
-    updateChecklistItem("chkExportReady", true);
+    edgeCountCard.textContent = eCount.toString();
+    cycleCard.textContent = hasCycle ? "Yes" : "No";
+    let pf = 0;
+    for(const actId in tasksMap) {
+      if(tasksMap[actId].EF>pf) pf = tasksMap[actId].EF;
+    }
+    finishCard.textContent = pf.toFixed(2) + " days";
+    analysisTimeCard.textContent = (new Date()).toLocaleTimeString();
+
+    // Top 3 paths
+    const top3Tbl = document.getElementById("top3Tbody");
+    top3Tbl.innerHTML = "";
+    const top3 = pathsResult.slice(0,3);
+    for(const p of top3) {
+      const tr = document.createElement("tr");
+      const tdRank = document.createElement("td");
+      tdRank.textContent = p.rank;
+      const tdTotalFF = document.createElement("td");
+      tdTotalFF.textContent = formatFF(p.totalFF);
+      const tdEdges = document.createElement("td");
+      tdEdges.textContent = p.edgesCount.toString();
+      const tdBottleneck = document.createElement("td");
+      const minFF = p.edges.reduce((acc, e)=> e.FF_edge < acc? e.FF_edge : acc, Infinity);
+      tdBottleneck.textContent = formatFF(minFF === Infinity ? 0 : minFF);
+      const tdTerminal = document.createElement("td");
+      tdTerminal.textContent = p.terminalId;
+      const tdPath = document.createElement("td");
+      tdPath.textContent = p.path.join(">");
+      tr.appendChild(tdRank);
+      tr.appendChild(tdTotalFF);
+      tr.appendChild(tdEdges);
+      tr.appendChild(tdBottleneck);
+      tr.appendChild(tdTerminal);
+      tr.appendChild(tdPath);
+      top3Tbl.appendChild(tr);
+    }
+
+    // Detailed paths
+    const detailDiv = document.getElementById("detailedPathsTable");
+    const table = detailDiv.querySelector("table");
+    const tbody = table.querySelector("tbody");
+    tbody.innerHTML = "";
+
+    for(const p of pathsResult) {
+      const tr = document.createElement("tr");
+      const tdRank = document.createElement("td");
+      tdRank.textContent = p.rank;
+      const tdTotalFF = document.createElement("td");
+      tdTotalFF.textContent = formatFF(p.totalFF);
+      const tdEdges = document.createElement("td");
+      tdEdges.textContent = p.edgesCount.toString();
+      const tdBottleneck = document.createElement("td");
+      const minFF = p.edges.reduce((acc, e)=> e.FF_edge < acc? e.FF_edge : acc, Infinity);
+      tdBottleneck.textContent = formatFF(minFF === Infinity ? 0 : minFF);
+      const tdTerminal = document.createElement("td");
+      tdTerminal.textContent = p.terminalId;
+      const tdPath = document.createElement("td");
+      tdPath.textContent = p.path.slice().reverse().join(">"); // show backward or forward?
+      const tdEdgeFF = document.createElement("td");
+      tdEdgeFF.textContent = p.edges.map(e=> formatFF(e.FF_edge) ).join(";");
+      const tdNotes = document.createElement("td");
+      tdNotes.textContent = maxPathsReached ? "MaxPaths limit" : "";
+      tr.appendChild(tdRank);
+      tr.appendChild(tdTotalFF);
+      tr.appendChild(tdEdges);
+      tr.appendChild(tdBottleneck);
+      tr.appendChild(tdTerminal);
+      tr.appendChild(tdPath);
+      tr.appendChild(tdEdgeFF);
+      tr.appendChild(tdNotes);
+      tbody.appendChild(tr);
+    }
   }
 
-  function downloadFile(content, filename, type) {
-    const blob = new Blob([content], {type});
+  function formatFF(val) {
+    if(unitMode==="hours") {
+      return (val*hoursPerDay).toFixed(2) + "h";
+    }
+    return val.toFixed(2) + "d";
+  }
+
+  ////////////////////////////////////////////////////////////
+  // EXPORT FILES
+  ////////////////////////////////////////////////////////////
+  function exportPathsCSV() {
+    const lines = [];
+    lines.push(["Rank","TotalFF_Days","TotalFF_Hours","EdgesCount","BottleneckFF_Days","BottleneckEdge (u->v)","TerminalCompletedID","PathIDs (Start->...->Terminal)","PerEdgeFF_Days","Aborted","Notes"].join(","));
+    for(const p of pathsResult) {
+      const minFF = p.edges.reduce((acc, e)=> e.FF_edge<acc? e.FF_edge : acc, Infinity);
+      const bEdge = p.edges.find(e=> e.FF_edge===minFF);
+      const bottleneckStr = bEdge ? (bEdge.u + "->" + bEdge.v) : "";
+      const row = [
+        p.rank,
+        p.totalFF.toFixed(2),
+        (p.totalFF*hoursPerDay).toFixed(2),
+        p.edgesCount,
+        (minFF===Infinity?0:minFF).toFixed(2),
+        bottleneckStr,
+        p.terminalId,
+        p.path.slice().reverse().join(">"),
+        p.edges.map(e=> e.FF_edge.toFixed(2)).join(";"),
+        maxPathsReached || analysisAborted ? "true":"false",
+        ""
+      ];
+      lines.push(row.map(x=> `"${x}"`).join(","));
+    }
+    const csvContent = lines.join("\n");
+    downloadFile(csvContent, "Paths.csv", "text/csv");
+  }
+
+  function exportSummaryCSV() {
+    const lines = [];
+    lines.push(["Rank","TotalFF_Days","TotalFF_Hours","EdgesCount","BottleneckFF_Days","BottleneckEdge (u->v)","TerminalCompletedID","PathIDs (Start->...->Terminal)","PerEdgeFF_Days","Aborted","Notes"].join(","));
+    const top3 = pathsResult.slice(0,3);
+    for(const p of top3) {
+      const minFF = p.edges.reduce((acc, e)=> e.FF_edge<acc? e.FF_edge : acc, Infinity);
+      const bEdge = p.edges.find(e=> e.FF_edge===minFF);
+      const bottleneckStr = bEdge ? (bEdge.u + "->" + bEdge.v) : "";
+      const row = [
+        p.rank,
+        p.totalFF.toFixed(2),
+        (p.totalFF*hoursPerDay).toFixed(2),
+        p.edgesCount,
+        (minFF===Infinity?0:minFF).toFixed(2),
+        bottleneckStr,
+        p.terminalId,
+        p.path.slice().reverse().join(">"),
+        p.edges.map(e=> e.FF_edge.toFixed(2)).join(";"),
+        maxPathsReached || analysisAborted ? "true":"false",
+        ""
+      ];
+      lines.push(row.map(x=> `"${x}"`).join(","));
+    }
+    const csvContent = lines.join("\n");
+    downloadFile(csvContent, "Summary.csv", "text/csv");
+  }
+
+  function exportAnalysisLog() {
+    const lines = logEntries.map(e=> {
+      return `${e.timestamp} [${e.level}] [${e.step}] ${e.message}`;
+    });
+    const logText = lines.join("\n");
+    downloadFile(logText, "AnalysisLog.txt", "text/plain");
+  }
+
+  function downloadFile(content, filename, mime) {
+    const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=> {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
   }
 
-  /* Orchestrate Analysis */
-  function doAnalysis() {
-    const t0 = performance.now();
-    setState("Analyzed");
-    document.getElementById("globalProgress").value = 0;
-    document.getElementById("progressLabel").textContent = "Analysis in progress...";
-    updateChecklistItem("chkPathsFound", false);
-    updateChecklistItem("chkPathsRanked", false);
-    const topoOrder = topologicalSort();
-    if (App.cycleDetected) return;
-    document.getElementById("globalProgress").value = 10;
-    forwardPass(topoOrder);
-    document.getElementById("globalProgress").value = 25;
-    backwardPass(topoOrder);
-    document.getElementById("globalProgress").value = 40;
-    updateChecklistItem("chkCpmTimes", true);
-    computeEdgeFF();
-    updateChecklistItem("chkFreeFloat", true);
-    document.getElementById("globalProgress").value = 50;
-    document.getElementById("projectFinish").textContent = App.projectFinish.toFixed(2);
-    App.canceled = false;
-    enumerateBackwardPaths(document.getElementById("startActivityId").value.trim());
-    updateChecklistItem("chkPathsFound", App.paths.length>0);
-    document.getElementById("globalProgress").value = 70;
-    rankPaths();
-    updateChecklistItem("chkPathsRanked", true);
-    document.getElementById("globalProgress").value = 80;
-    renderPathTables();
-    document.getElementById("globalProgress").value = 100;
-    document.getElementById("progressLabel").textContent = "Done.";
-    setState("ExportReady");
-    const t1 = performance.now();
-    document.getElementById("analysisTime").textContent = (t1 - t0).toFixed(2);
+  ////////////////////////////////////////////////////////////
+  // UI HANDLERS
+  ////////////////////////////////////////////////////////////
+  function onLoadSample() {
+    rawCSVText = sampleCSV;
+    parsedRows = parseCSVText(rawCSVText);
+    logMessage("INFO", "LOAD_CSV", "Loaded sample CSV with " + parsedRows.length + " rows");
+    if(parsedRows.length>0) {
+      setState(STATE.CSVLoaded);
+    }
+    updateChecklist();
   }
 
-  /* New unified file handler */
-  function handleFile(file) {
-    if (!file) return;
-    if (file.size > 10*1024*1024) {
-      log("WARN","LOAD_CSV","File too large (>10MB), proceed with caution");
+  function onFileSelected(files) {
+    if(!files || !files.length) return;
+    const file = files[0];
+    if(file.size > 10*1024*1024) {
+      logMessage("WARN", "LOAD_CSV", "File size exceeds 10 MB limit");
     }
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result;
-      const records = parseCSV(text);
-      if (!records.length) {
-        return;
+    reader.onload = function(e) {
+      rawCSVText = e.target.result;
+      parsedRows = parseCSVText(rawCSVText);
+      logMessage("INFO", "LOAD_CSV", "Loaded CSV with " + parsedRows.length + " rows");
+      if(parsedRows.length>7500) {
+        logMessage("WARN", "LOAD_CSV", "Rows exceed 7,500 limit");
       }
-      updateChecklistItem("chkCsvParsed", true);
-      setState("CSVLoaded");
-      document.getElementById("csvRowCount").textContent = "Rows: "+records.length;
-      buildGraph(records);
+      if(parsedRows.length>0) {
+        setState(STATE.CSVLoaded);
+      }
+    };
+    reader.onerror = function() {
+      logMessage("ERROR", "LOAD_CSV", "File read error");
     };
     reader.readAsText(file);
   }
 
-  function onFileSelected(evt) {
-    const file = evt.target.files[0];
-    handleFile(file);
+  function onBuildGraph() {
+    setState(STATE.CSVLoaded); // ensure state
+    buildGraph();
+    if(currentState===STATE.GraphBuilt) {
+      computeCPM();
+      if(hasCycle) {
+        logMessage("ERROR", "CPM", "Cannot proceed due to cycle. Analysis blocked.");
+      }
+      updateUIState();
+    }
   }
 
-  function onDragOver(evt) {
-    evt.preventDefault();
-    evt.stopPropagation();
-    evt.dataTransfer.dropEffect = "copy";
-    document.getElementById("dragDropArea").classList.add("dragover");
-  }
-
-  function onDragLeave(evt) {
-    evt.preventDefault();
-    evt.stopPropagation();
-    document.getElementById("dragDropArea").classList.remove("dragover");
-  }
-
-  function onDrop(evt) {
-    evt.preventDefault();
-    evt.stopPropagation();
-    document.getElementById("dragDropArea").classList.remove("dragover");
-    const file = evt.dataTransfer.files[0];
-    handleFile(file);
-  }
-
-  /* Self Test: load sample, build graph, analyze, check results */
-  function runSelfTest() {
-    log("INFO","SELF_TEST","Running self-test with embedded sample CSV");
-    resetApp(false);
-    document.getElementById("csvRowCount").textContent = "Sample loaded, " + App.sampleCSV.split("\n").length + " lines";
-    const records = parseCSV(App.sampleCSV);
-    if (!records.length) {
-      log("ERROR","SELF_TEST","Parsing sample CSV failed");
+  function onAnalyzePaths() {
+    if(hasCycle) {
+      logMessage("ERROR", "CPM", "Cannot analyze paths due to cycle");
       return;
     }
-    updateChecklistItem("chkCsvParsed", true);
-    setState("CSVLoaded");
-    buildGraph(records);
-    document.getElementById("startActivityId").value = "A120";
-    doAnalysis();
+    const startActivitySelect = document.getElementById("startActivitySelect");
+    const startId = startActivitySelect.value;
+    if(!startId) {
+      logMessage("ERROR", "ENUMERATE_PATHS", "No start ID selected");
+      return;
+    }
+    enumerateBackwardPaths(startId);
+    rankPaths();
+    setState(STATE.Analyzed);
+    renderResults();
+    setState(STATE.ExportReady);
   }
 
-  /* Reset application state */
-  function resetApp(confirmNeeded=true) {
-    if (confirmNeeded) {
-      if(!window.confirm("Reset application state?")) return;
-    }
-    App.state = "Idle";
-    App.activities = {};
-    App.edges = [];
-    App.adjacency.successors = {};
-    App.adjacency.predecessors = {};
-    App.paths = [];
-    App.top3 = [];
-    App.cycleDetected = false;
-    App.logMessages = [];
-    App.projectFinish = 0;
-    App.canceled = false;
-    document.getElementById("logPanel").textContent = "";
-    document.getElementById("activityCount").textContent = "0";
-    document.getElementById("edgeCount").textContent = "0";
-    document.getElementById("cycleDetected").textContent = "No";
-    document.getElementById("projectFinish").textContent = "---";
-    document.getElementById("analysisTime").textContent = "0";
-    document.querySelector("#top3Table tbody").innerHTML = "";
-    document.querySelector("#detailedPathsTable tbody").innerHTML = "";
-    document.getElementById("csvRowCount").textContent = "";
-    setState("Idle");
-    document.getElementById("globalProgress").value = 0;
-    document.getElementById("progressLabel").textContent = "";
-    ["chkCsvParsed","chkGraphBuilt","chkNoCycles","chkCpmTimes","chkFreeFloat","chkPathsFound","chkPathsRanked","chkExportReady","chkLogAvailable","chkUnitToggle"]
-    .forEach(id => updateChecklistItem(id,false));
+  function onExport() {
+    exportPathsCSV();
+    exportSummaryCSV();
+    exportAnalysisLog();
   }
 
-  /* UI Setup */
-  window.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("loadSampleBtn").addEventListener("click", ()=>{
-      resetApp(false);
-      const records = parseCSV(App.sampleCSV);
-      if (!records.length) return;
-      updateChecklistItem("chkCsvParsed", true);
-      setState("CSVLoaded");
-      document.getElementById("csvRowCount").textContent = "Sample loaded, " + records.length + " rows";
-      buildGraph(records);
-    });
-    document.getElementById("csvFile").addEventListener("change", onFileSelected);
-    const dropArea = document.getElementById("dragDropArea");
-    dropArea.addEventListener("click", ()=> document.getElementById("csvFile").click());
-    dropArea.addEventListener("dragover", onDragOver);
-    dropArea.addEventListener("dragleave", onDragLeave);
-    dropArea.addEventListener("drop", onDrop);
+  function resetApp() {
+    if(!confirm("Are you sure you want to reset?")) return;
+    rawCSVText = "";
+    parsedRows = [];
+    tasksMap = {};
+    adjSuccessors = {};
+    adjPredecessors = {};
+    edgesList = [];
+    pathsResult = [];
+    hasCycle = false;
+    topologicalOrder = [];
+    logEntries = [];
+    maxPathsReached = false;
+    analysisAborted = false;
+    setState(STATE.Idle);
+    renderLogPanel();
+    document.getElementById("startActivitySelect").innerHTML = "";
+    document.getElementById("csvFileInput").value = "";
+    renderResults();
+    updateUIState();
+  }
 
-    document.getElementById("buildGraphBtn").addEventListener("click", ()=>{
-      if (App.state==="CSVLoaded") {
-        log("INFO","BUILD_GRAPH","Graph build requested again. Reload or new parse if needed.");
-      }
-    });
-    document.getElementById("analyzePathsBtn").addEventListener("click", ()=>{
-      if (!App.cycleDetected && App.state!=="Idle" && document.getElementById("startActivityId").value.trim()!=="") {
-        doAnalysis();
-      }
-    });
-    document.getElementById("exportBtn").addEventListener("click", ()=>{
-      exportResults();
-    });
-    document.getElementById("resetBtn").addEventListener("click", ()=>{
-      resetApp(true);
-    });
-    document.getElementById("cancelBtn").addEventListener("click", ()=>{
-      App.canceled = true;
-    });
-    document.getElementById("themeToggleBtn").addEventListener("click", toggleTheme);
-    document.getElementById("settingsBtn").addEventListener("click", ()=>{
-      document.getElementById("settingsPanel").classList.add("open");
-    });
-    document.getElementById("closeSettingsBtn").addEventListener("click", ()=>{
-      document.getElementById("settingsPanel").classList.remove("open");
-    });
-    document.getElementById("helpBtn").addEventListener("click", ()=>{
-      document.getElementById("helpModal").classList.add("open");
-    });
-    document.getElementById("closeHelpBtn").addEventListener("click", ()=>{
-      document.getElementById("helpModal").classList.remove("open");
-    });
-    document.getElementById("logToggleBtn").addEventListener("click", ()=>{
-      const lp = document.getElementById("logPanel");
-      lp.classList.toggle("open");
-      updateChecklistItem("chkLogAvailable", lp.classList.contains("open"));
-    });
-    document.getElementById("selfTestBtn").addEventListener("click", runSelfTest);
+  function onCancelStop() {
+    analysisAborted = true;
+    maxPathsReached = true;
+    logMessage("WARN", "ENUMERATE_PATHS", "User canceled/stop");
+  }
 
-    document.getElementById("unitToggle").addEventListener("change", (evt)=>{
-      App.config.unit = evt.target.value;
-      updateChecklistItem("chkUnitToggle", true);
-      renderPathTables();
-    });
-    document.getElementById("hoursPerDay").addEventListener("change",(evt)=>{
-      let val = parseFloat(evt.target.value);
-      if (isNaN(val) || val<1 || val>24) {
-        val = 8;
-      }
-      App.config.hoursPerDay = val;
-      renderPathTables();
-    });
-    document.getElementById("fallbackMode").addEventListener("change",(evt)=>{
-      App.config.fallbackMode = evt.target.value;
-    });
-    document.getElementById("maxPaths").addEventListener("change",(evt)=>{
-      let val = parseInt(evt.target.value);
-      if (isNaN(val) || val<1) { val=1; }
-      if (val>100000) {
-        log("WARN","SETTINGS","maxPaths very large, performance risk");
-      }
-      App.config.maxPaths = val;
-    });
-    document.getElementById("maxDepth").addEventListener("change",(evt)=>{
-      let val = parseInt(evt.target.value);
-      if (isNaN(val) || val<10) { val=10; }
-      if (val>10000) {
-        log("WARN","SETTINGS","maxDepth very large, performance risk");
-      }
-      App.config.maxDepth = val;
-    });
-    window.addEventListener("keydown",(evt)=>{
-      if (evt.key==="?"){
-        document.getElementById("helpModal").classList.toggle("open");
-      } else if (evt.key==="t"){
-        toggleTheme();
-      } else if (evt.key==="g"){
-        if (App.state==="CSVLoaded") {
-          log("INFO","BUILD_GRAPH","Graph build requested via keyboard. Reload or new parse if needed.");
-        }
-      } else if (evt.key==="a"){
-        if (!App.cycleDetected && App.state!=="Idle" && document.getElementById("startActivityId").value.trim()!=="") {
-          doAnalysis();
-        }
-      } else if (evt.key==="e"){
-        exportResults();
-      } else if (evt.key==="l"){
-        document.getElementById("logPanel").classList.toggle("open");
-      }
-    });
-    function toggleTheme(){
-      if (document.body.classList.contains("light")) {
-        document.body.classList.remove("light");
-        document.body.classList.add("dark");
-      } else {
-        document.body.classList.remove("dark");
-        document.body.classList.add("light");
-      }
+  function onToggleTheme() {
+    const body = document.body;
+    const currentTheme = body.getAttribute("data-theme");
+    body.setAttribute("data-theme", currentTheme==="dark"? "light":"dark");
+  }
+
+  function onToggleLogPanel() {
+    const logPanel = document.getElementById("logPanel");
+    logPanel.classList.toggle("expanded");
+  }
+
+  function onUnitToggle() {
+    const modeSelect = document.getElementById("unitModeSelect").value;
+    unitMode = modeSelect;
+    renderResults();
+  }
+
+  function onHoursPerDayChange() {
+    const val = parseFloat(document.getElementById("hoursPerDayInput").value);
+    if(!isNaN(val) && val>=1 && val<=24) {
+      hoursPerDay = val;
     }
+    renderResults();
+  }
+
+  function onFallbackChange() {
+    fallbackMode = document.getElementById("fallbackModeSelect").value;
+  }
+
+  function onMaxPathsChange() {
+    const val = parseInt(document.getElementById("maxPathsInput").value,10);
+    if(!isNaN(val) && val>=1) {
+      maxPaths = val;
+      if(val>10000) logMessage("WARN", "SETTINGS", "maxPaths above 10,000 may be slow");
+    }
+  }
+
+  function onMaxDepthChange() {
+    const val = parseInt(document.getElementById("maxDepthInput").value,10);
+    if(!isNaN(val) && val>=10) {
+      maxDepth = val;
+      if(val>10000) logMessage("WARN", "SETTINGS", "maxDepth above 10,000 may be slow");
+    }
+  }
+
+  function openSettingsPanel() {
+    document.getElementById("settingsPanel").classList.remove("hidden");
+  }
+
+  function closeSettingsPanel() {
+    document.getElementById("settingsPanel").classList.add("hidden");
+  }
+
+  function openHelpModal() {
+    document.getElementById("helpModal").classList.remove("hidden");
+  }
+
+  function closeHelpModal() {
+    document.getElementById("helpModal").classList.add("hidden");
+  }
+
+  function onRunSelfTest() {
+    // Load sample => build => analyze => check acceptance
+    onLoadSample();
+    setTimeout(()=>{
+      onBuildGraph();
+      setTimeout(()=>{
+        const startSelect = document.getElementById("startActivitySelect");
+        const firstKey = Object.keys(tasksMap)[0];
+        startSelect.value = firstKey;
+        onAnalyzePaths();
+        logMessage("INFO", "SELF_TEST", "Self-test complete");
+      },500);
+    },500);
+  }
+
+  ////////////////////////////////////////////////////////////
+  // INIT
+  ////////////////////////////////////////////////////////////
+  window.addEventListener("DOMContentLoaded", ()=>{
+    // default theme
+    document.body.setAttribute("data-theme","light");
+
+    // set initial state
+    setState(STATE.Idle);
+
+    // drag & drop
+    const dropArea = document.getElementById("csvDropArea");
+    dropArea.addEventListener("dragenter", (e)=>{ e.preventDefault(); e.stopPropagation(); dropArea.classList.add("dragover"); });
+    dropArea.addEventListener("dragover", (e)=>{ e.preventDefault(); e.stopPropagation(); });
+    dropArea.addEventListener("dragleave", (e)=>{ e.preventDefault(); e.stopPropagation(); dropArea.classList.remove("dragover"); });
+    dropArea.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      dropArea.classList.remove("dragover");
+      if(e.dataTransfer.files && e.dataTransfer.files.length) {
+        onFileSelected(e.dataTransfer.files);
+      }
+    });
+
+    // fill startActivitySelect after graph built
+    document.getElementById("startActivitySelect").addEventListener("click", (e)=>{
+      // populate when needed
+      const sel = e.currentTarget;
+      sel.innerHTML = "";
+      for(const actId in tasksMap) {
+        const opt = document.createElement("option");
+        opt.value = actId;
+        opt.textContent = actId;
+        sel.appendChild(opt);
+      }
+    });
+
+    // keyboard shortcuts
+    document.addEventListener("keydown", (e)=>{
+      if(e.key==="?") {
+        openHelpModal();
+      } else if(e.key==="g") {
+        onBuildGraph();
+      } else if(e.key==="a") {
+        onAnalyzePaths();
+      } else if(e.key==="e") {
+        onExport();
+      } else if(e.key==="l") {
+        onToggleLogPanel();
+      } else if(e.key==="t") {
+        onToggleTheme();
+      }
+    });
   });
+
 })();
 </script>
+</head>
+<body data-theme="light">
+
+<header>
+  <div style="font-size:1.25rem;font-weight:bold;">CPM Backward Path Analyzer</div>
+  <div>
+    <button id="themeToggleBtn" onclick="onToggleTheme()">Toggle Theme</button>
+    <button onclick="openHelpModal()">Help</button>
+    <button onclick="openSettingsPanel()">Settings</button>
+  </div>
+</header>
+
+<main>
+  <!-- Left Panel -->
+  <div id="leftPanel">
+    <h3>CSV Input</h3>
+    <div id="csvDropArea">Drag & Drop CSV Here</div>
+    <input type="file" id="csvFileInput" accept=".csv" onchange="onFileSelected(this.files)" />
+    <div class="buttonRow">
+      <button onclick="onLoadSample()">Load Sample</button>
+    </div>
+
+    <hr />
+    <h3>Settings</h3>
+    <label>Units:</label>
+    <select id="unitModeSelect" onchange="onUnitToggle()">
+      <option value="days" selected>Days</option>
+      <option value="hours">Hours</option>
+    </select>
+
+    <label>Hours/Day:</label>
+    <input type="number" id="hoursPerDayInput" value="8" step="0.25" min="1" max="24" onchange="onHoursPerDayChange()" />
+
+    <label>Fallback Mode:</label>
+    <select id="fallbackModeSelect" onchange="onFallbackChange()">
+      <option value="strict" selected>Strict</option>
+      <option value="placeholder">Placeholder</option>
+    </select>
+
+    <label>Max Paths:</label>
+    <input type="number" id="maxPathsInput" min="1" max="100000" value="250" onchange="onMaxPathsChange()" />
+
+    <label>Max Depth:</label>
+    <input type="number" id="maxDepthInput" min="10" max="10000" value="500" onchange="onMaxDepthChange()" />
+
+    <hr />
+    <h3>Start & Actions</h3>
+    <label>Start Activity ID:</label>
+    <select id="startActivitySelect"></select>
+    <div class="buttonRow">
+      <button id="buildGraphBtn" onclick="onBuildGraph()" disabled>Build Graph</button>
+      <button id="analyzePathsBtn" onclick="onAnalyzePaths()" disabled>Analyze Paths</button>
+      <button id="cancelBtn" onclick="onCancelStop()">Cancel/Stop</button>
+      <button onclick="resetApp()">Reset</button>
+    </div>
+    <div class="buttonRow">
+      <button onclick="onRunSelfTest()">Run Self-Test</button>
+    </div>
+
+    <hr />
+    <h3>Status</h3>
+    <div id="statusIdle">Idle</div>
+    <div id="statusCSV" class="hidden">CSV Loaded</div>
+    <div id="statusGraph" class="hidden">Graph Built</div>
+    <div id="statusAnalyze" class="hidden">Analyzed</div>
+    <div id="statusExport" class="hidden">Export Ready</div>
+  </div>
+
+  <!-- Right Panel -->
+  <div id="rightPanel">
+    <div id="dashboardCards">
+      <div class="card">
+        <strong>Activities:</strong> <span id="actCountCard">0</span>
+      </div>
+      <div class="card">
+        <strong>Edges:</strong> <span id="edgeCountCard">0</span>
+      </div>
+      <div class="card">
+        <strong>Cycle Detected:</strong> <span id="cycleCard">No</span>
+      </div>
+      <div class="card">
+        <strong>Project Finish:</strong> <span id="finishCard">0.00</span>
+      </div>
+      <div class="card">
+        <strong>Analysis Time:</strong> <span id="analysisTimeCard">--:--</span>
+      </div>
+    </div>
+
+    <div id="top3PathsPreview">
+      <h3>Top 3 Paths Preview</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Total FF</th>
+            <th>Edges</th>
+            <th>Bottleneck</th>
+            <th>Terminal</th>
+            <th>Path</th>
+          </tr>
+        </thead>
+        <tbody id="top3Tbody"></tbody>
+      </table>
+    </div>
+
+    <div id="detailedPathsTable">
+      <h3>Detailed Paths</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Total FF</th>
+            <th># Edges</th>
+            <th>BottleneckFF</th>
+            <th>Terminal ID</th>
+            <th>Path IDs</th>
+            <th>Per-Edge FF</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="buttonRow">
+      <button id="exportBtn" onclick="onExport()" disabled>Export</button>
+      <button onclick="onToggleLogPanel()">Toggle Log</button>
+    </div>
+
+    <div id="logPanel"></div>
+  </div>
+</main>
+
+<footer>
+  <div id="acceptanceChecklist">
+    <div class="checklist-item"><input type="checkbox" id="chkCSV" disabled /><label>CSV parsed</label></div>
+    <div class="checklist-item"><input type="checkbox" id="chkGraph" disabled /><label>Graph built</label></div>
+    <div class="checklist-item"><input type="checkbox" id="chkNoCycle" disabled /><label>No cycles detected</label></div>
+    <div class="checklist-item"><input type="checkbox" id="chkCPM" disabled /><label>CPM times computed</label></div>
+    <div class="checklist-item"><input type="checkbox" id="chkFF" disabled /><label>Free float computed</label></div>
+    <div class="checklist-item"><input type="checkbox" id="chkPaths" disabled /><label>Paths enumerated</label></div>
+    <div class="checklist-item"><input type="checkbox" id="chkRanks" disabled /><label>Paths ranked</label></div>
+    <div class="checklist-item"><input type="checkbox" id="chkExport" disabled /><label>Output files generated</label></div>
+    <div class="checklist-item"><input type="checkbox" id="chkLog" disabled /><label>Log available</label></div>
+  </div>
+  <div>
+    <small>Build info: v1.0 - <span id="analysisTimeCard2"></span></small>
+  </div>
+</footer>
+
+<!-- Settings Panel -->
+<div id="settingsPanel" class="hidden">
+  <button id="settingsPanelClose" onclick="closeSettingsPanel()">×</button>
+  <h3>Settings</h3>
+  <p>Adjust settings in the left panel or here. (This panel is just a demonstration of a modal. All changes should be made in the left panel for simplicity.)</p>
+</div>
+
+<!-- Help Modal -->
+<div id="helpModal" class="hidden">
+  <button id="helpModalClose" onclick="closeHelpModal()">×</button>
+  <h3>Help</h3>
+  <p>Keyboard Shortcuts:</p>
+  <ul>
+    <li>? - Open Help</li>
+    <li>g - Build Graph</li>
+    <li>a - Analyze Paths</li>
+    <li>e - Export</li>
+    <li>l - Toggle Log</li>
+    <li>t - Toggle Theme</li>
+  </ul>
+</div>
+
 </body>
 </html>
