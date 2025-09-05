@@ -1,853 +1,1295 @@
-[full HTML content here]
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
+<meta charset="UTF-8" />
 <title>CPM Backward Path Analyzer</title>
 <style>
-/* 
-  Inline CSS
-  - Basic responsive layout using CSS grid
-  - Light/Dark theme toggling
-  - Minimal styling to meet the specification
-*/
-:root {
-  --bg-color: #fafafa;
-  --text-color: #333;
-  --accent-color: #0067c5;
-  --danger-color: #c52200;
-  --success-color: #008000;
-  --border-color: #ccc;
-  --log-height: 200px;
-  --max-width: 1280px;
-  --transition-speed: 0.3s;
+/* Inline CSS - Single file SPA - Must be fully self-contained */
+
+/* Basic Resets & Layout */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
-body.dark {
-  --bg-color: #1a1a1a;
-  --text-color: #eee;
-  --border-color: #555;
-}
-body {
-  margin: 0; padding: 0;
-  background: var(--bg-color);
-  color: var(--text-color);
+html, body {
+  height: 100%;
   font-family: sans-serif;
-  transition: background var(--transition-speed), color var(--transition-speed);
+  background-color: #f0f0f0;
+  color: #333;
+}
+body.dark-theme {
+  background-color: #1e1e1e;
+  color: #ccc;
 }
 header, footer {
+  background: #ccc;
+  margin: 0;
   padding: 0.5rem 1rem;
-  background: var(--accent-color);
-  color: #fff;
-  display: flex; align-items: center; justify-content: space-between;
 }
-header { position: sticky; top: 0; }
+body.dark-theme header, body.dark-theme footer {
+  background: #333;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
 h1 {
-  margin: 0; font-size: 1.4rem;
+  font-size: 1.2rem;
+  margin-right: 1rem;
+}
+#themeToggleBtn,
+#helpBtn,
+#settingsBtn {
+  cursor: pointer;
+  margin-left: 0.5rem;
 }
 main {
   display: grid;
-  grid-template-columns: 1fr 2fr;
+  grid-template-columns: 320px 1fr;
   gap: 1rem;
-  max-width: var(--max-width);
-  margin: 0 auto; padding: 1rem;
+  padding: 1rem;
+  max-width: 1280px;
+  margin: 0 auto;
 }
 @media (max-width: 768px) {
-  main { grid-template-columns: 1fr; }
+  main {
+    grid-template-columns: 1fr;
+  }
 }
-.left-pane, .right-pane {
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
-  padding: 1rem; border-radius: 4px;
-}
-button, input, select, textarea {
-  font-family: inherit; font-size: 1rem;
-}
-.status-badge {
-  display: inline-block;
-  padding: 0.2rem 0.4rem;
-  margin-right: 0.3rem;
+
+#leftPanel, #rightPanel {
+  background: #fff;
+  padding: 1rem;
   border-radius: 4px;
-  font-size: 0.75rem;
-  background: #ccc;
-  color: #000;
 }
-.status-badge.active { background: var(--success-color); color: #fff; }
-.status-badge.inactive { background: #ccc; color: #000; }
-.status-badge.error { background: var(--danger-color); color: #fff; }
-.log-panel {
-  height: var(--log-height);
-  overflow-y: auto; font-size: 0.85rem; border: 1px solid var(--border-color);
-  padding: 0.25rem; margin-top: 0.5rem; background: #fff; color: #000;
+body.dark-theme #leftPanel, body.dark-theme #rightPanel {
+  background: #2c2c2c;
 }
-.dark .log-panel { background: #222; color: #ccc; }
-.log-entry { border-bottom: 1px solid var(--border-color); padding: 0.2rem 0; }
-.controls-group { margin-bottom: 1rem; }
-.controls-group label { display: block; margin-bottom: 0.25rem; font-weight: bold; }
-.flex-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.table-container {
-  max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); margin-top: 0.5rem;
+
+section {
+  margin-bottom: 1rem;
 }
-table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
-th, td { border: 1px solid var(--border-color); padding: 0.4rem; }
-th { background: var(--accent-color); color: #fff; position: sticky; top: 0; }
-.path-preview-table { margin-top: 0.5rem; }
-.checklist {
-  display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; 
+label {
+  display: inline-block;
+  margin-bottom: 0.25rem;
+  font-weight: bold;
 }
-.checklist-item {
-  display: flex; align-items: center;
+input[type="file"],
+select,
+input,
+button {
+  display: block;
+  margin-bottom: 0.5rem;
+  padding: 0.25rem;
+  width: 100%;
+  max-width: 100%;
 }
-.checklist-item label { margin-left: 0.25rem; }
+button {
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+#statusBadges span {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 2px;
+  background: #eee;
+  color: #333;
+}
+body.dark-theme #statusBadges span {
+  background: #444;
+  color: #ccc;
+}
+
+#cardsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.statCard {
+  background: #fafafa;
+  padding: 0.5rem;
+  border-radius: 4px;
+  min-width: 140px;
+  text-align: center;
+  flex: 1 1 auto;
+}
+body.dark-theme .statCard {
+  background: #3a3a3a;
+}
+
+#top3PathsTable,
+#detailedPathsTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+#top3PathsTable th,
+#top3PathsTable td,
+#detailedPathsTable th,
+#detailedPathsTable td {
+  border: 1px solid #ddd;
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+}
+body.dark-theme #top3PathsTable th,
+body.dark-theme #top3PathsTable td,
+body.dark-theme #detailedPathsTable th,
+body.dark-theme #detailedPathsTable td {
+  border-color: #555;
+}
+
+#logPanel {
+  margin-top: 1rem;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #f9f9f9;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  display: none;
+}
+body.dark-theme #logPanel {
+  background: #2c2c2c;
+  border-color: #555;
+}
+.logLine {
+  font-size: 0.8rem;
+  padding: 2px 0;
+  border-bottom: 1px dashed #ccc;
+}
+body.dark-theme .logLine {
+  border-bottom-color: #666;
+}
+.logError {
+  color: red;
+}
+.logWarn {
+  color: orange;
+}
+.logInfo {
+  color: green;
+}
+.logStep {
+  color: blue;
+}
+
+/* Settings and Help Panels */
+#helpModal,
+#settingsPanel {
+  position: fixed;
+  top: 50px;
+  right: 50px;
+  background: #fff;
+  border: 1px solid #666;
+  padding: 1rem;
+  z-index: 100;
+  display: none;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+body.dark-theme #helpModal,
+body.dark-theme #settingsPanel {
+  background: #2c2c2c;
+}
+.closeBtn {
+  display: inline-block;
+  float: right;
+  cursor: pointer;
+  font-weight: bold;
+  margin-left: 0.5rem;
+}
+
+/* Footer & Checklist */
 footer {
-  background: var(--accent-color); color: #fff; padding: 0.5rem 1rem; 
-  display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem;
+  margin-top: 1rem;
 }
-footer small { font-size: 0.75rem; }
-.header-buttons button { margin-left: 0.5rem; }
-.progress-bar-container {
-  margin-top: 0.5rem; background: var(--border-color); height: 8px; border-radius: 4px; width: 100%;
+#checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
-.progress-bar-fill {
-  width: 0; height: 8px; background: var(--success-color);
-  border-radius: 4px; transition: width 0.1s;
+#checklist .checkItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
 }
-.hidden { display: none !important; }
+.checkItem input[type="checkbox"] {
+  pointer-events: none;
+}
 </style>
 </head>
 <body>
 <header>
-  <h1>CPM Backward Path Analyzer</h1>
-  <div class="header-buttons">
-    <button id="themeToggle" aria-label="Toggle Light/Dark Theme">Toggle Theme</button>
-    <button id="helpBtn" aria-label="Help">?</button>
+  <div>
+    <h1>CPM Backward Path Analyzer</h1>
+  </div>
+  <div>
+    <button id="themeToggleBtn" aria-label="Toggle Theme">Toggle Theme</button>
+    <button id="helpBtn" aria-label="Help">Help</button>
     <button id="settingsBtn" aria-label="Settings">Settings</button>
   </div>
 </header>
 <main>
-  <div class="left-pane">
-    <div class="controls-group">
-      <label for="csvFileInput">CSV Input:</label>
+  <!-- LEFT PANEL: Controls -->
+  <div id="leftPanel">
+    <section>
+      <label for="csvFileInput">CSV Input</label>
       <input type="file" id="csvFileInput" accept=".csv" />
-      <div id="csvFileInfo"></div>
-      <progress id="csvProgress" value="0" max="100" style="width:100%;"></progress>
-    </div>
-    <div class="controls-group">
-      <label>Units:</label>
-      <select id="unitsSelect" aria-label="Units Toggle">
-        <option value="days">Days</option>
+      <div id="csvRowCountInfo">(No CSV loaded)</div>
+    </section>
+    <section id="settingsSection">
+      <label>Units Toggle:</label>
+      <select id="unitsToggle">
+        <option value="days" selected>Days</option>
         <option value="hours">Hours</option>
       </select>
-    </div>
-    <div class="controls-group">
-      <label for="hoursPerDayInput">Hours/Day:</label>
-      <input type="number" step="0.25" min="1" max="24" id="hoursPerDayInput" value="8.00" />
-    </div>
-    <div class="controls-group">
-      <label>Fallback Mode:</label>
-      <select id="fallbackMode" aria-label="Graph Fallback Mode">
-        <option value="strict">Strict</option>
+      <label for="hoursPerDayInput">Hours per Day:</label>
+      <input id="hoursPerDayInput" type="number" step="0.25" min="1" max="24" value="8" />
+      <label for="fallbackModeSelect">Graph Fallbacks:</label>
+      <select id="fallbackModeSelect">
+        <option value="strict" selected>Strict</option>
         <option value="placeholder">Placeholder</option>
       </select>
-    </div>
-    <div class="controls-group">
-      <label for="maxPathsInput">MaxPaths:</label>
-      <input type="number" id="maxPathsInput" value="250" />
-    </div>
-    <div class="controls-group">
-      <label for="maxDepthInput">MaxDepth:</label>
-      <input type="number" id="maxDepthInput" value="500" />
-    </div>
-    <div class="controls-group">
-      <label for="startActivityID">Start Activity ID:</label>
-      <input type="text" id="startActivityID" placeholder="Enter Start ID" />
-    </div>
-    <div class="controls-group flex-row">
-      <button id="buildGraphBtn" disabled aria-label="Build Graph (press g)">Build Graph</button>
-      <button id="analyzePathsBtn" disabled aria-label="Analyze Paths (press a)">Analyze</button>
-      <button id="cancelBtn" class="hidden" aria-label="Cancel/Stop">Cancel</button>
-      <button id="resetBtn" aria-label="Reset All">Reset</button>
-    </div>
-    <div class="controls-group flex-row">
-      <button id="exportBtn" disabled aria-label="Export (press e)">Export</button>
-    </div>
-    <div class="controls-group">
-      <span class="status-badge" id="statusIdle">Idle</span>
-      <span class="status-badge" id="statusCSVLoaded">CSV Loaded</span>
-      <span class="status-badge" id="statusGraphBuilt">Graph Built</span>
-      <span class="status-badge" id="statusAnalyzed">Analyzed</span>
-      <span class="status-badge" id="statusExportReady">Export Ready</span>
-    </div>
-    <div class="progress-bar-container" id="progressContainer" style="display: none;">
-      <div class="progress-bar-fill" id="progressBarFill"></div>
-    </div>
-    <button id="selfTestBtn">Run Self-Test</button>
-    <div id="logPanel" class="log-panel"></div>
+      <label for="maxPathsInput">Max Paths:</label>
+      <input id="maxPathsInput" type="number" value="250" min="1" max="100000" />
+      <label for="maxDepthInput">Max Depth:</label>
+      <input id="maxDepthInput" type="number" value="500" min="10" max="10000" />
+    </section>
+    <section>
+      <label for="startActivityInput">Start Activity ID:</label>
+      <input type="text" id="startActivityInput" placeholder="Enter Activity ID" />
+      <button id="buildGraphBtn" disabled>Build Graph</button>
+      <button id="analyzePathsBtn" disabled>Analyze Paths</button>
+      <button id="cancelBtn" style="display:none;">Cancel/Stop</button>
+      <button id="resetBtn">Reset</button>
+    </section>
+    <section id="statusBadges">
+      <span id="statusIdleBadge">Idle</span>
+      <span id="statusCsvBadge" style="display:none;">CSV Loaded</span>
+      <span id="statusGraphBadge" style="display:none;">Graph Built</span>
+      <span id="statusAnalyzedBadge" style="display:none;">Analyzed</span>
+      <span id="statusExportBadge" style="display:none;">Export Ready</span>
+    </section>
+    <section>
+      <button id="exportBtn" disabled>Export</button>
+    </section>
   </div>
-  <div class="right-pane">
-    <div class="controls-group flex-row" id="cardsRow">
-      <div><strong>Total Activities:</strong> <span id="activityCount">0</span></div>
-      <div><strong>Total Edges:</strong> <span id="edgeCount">0</span></div>
-      <div><strong>Cycle Detected:</strong> <span id="cycleDetected">No</span></div>
-      <div><strong>Project Finish:</strong> <span id="projectFinish">N/A</span></div>
-      <div><strong>Analysis Time:</strong> <span id="analysisTime">0ms</span></div>
+  <!-- RIGHT PANEL: Results & Output -->
+  <div id="rightPanel">
+    <div id="cardsRow">
+      <div class="statCard" id="activityCountCard">Activities: 0</div>
+      <div class="statCard" id="edgeCountCard">Edges: 0</div>
+      <div class="statCard" id="cycleDetectedCard">Cycle Detected: No</div>
+      <div class="statCard" id="projectFinishCard">Project Finish: N/A</div>
+      <div class="statCard" id="analysisTimeCard">Analysis Time: 0ms</div>
     </div>
-    <div class="controls-group">
-      <h3>Top 3 Paths Preview</h3>
-      <div class="table-container path-preview-table">
-        <table id="top3Table">
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>TotalFF</th>
-              <th>Edges</th>
-              <th>Bottleneck</th>
-              <th>TerminalCompletedID</th>
-              <th>Path</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="controls-group">
-      <h3>All Paths (Detailed)</h3>
-      <div class="table-container">
-        <table id="detailedPathsTable">
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>TotalFF</th>
-              <th>Edges</th>
-              <th>BottleneckFF</th>
-              <th>TerminalID</th>
-              <th>PathIDs</th>
-              <th>PerEdgeFF</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
+    <h3>Top 3 Paths Preview</h3>
+    <table id="top3PathsTable">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Total FF</th>
+          <th>Edges</th>
+          <th>Bottleneck</th>
+          <th>Terminal ID</th>
+          <th>Path</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+    <h3>Detailed Paths</h3>
+    <table id="detailedPathsTable">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Total FF (days)</th>
+          <th>Total FF (hours)</th>
+          <th>Edges</th>
+          <th>Bottleneck FF</th>
+          <th>Bottleneck Edge</th>
+          <th>Terminal Completed ID</th>
+          <th>Path IDs</th>
+          <th>Per-Edge FF (days)</th>
+          <th>Aborted</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+    <button id="toggleLogBtn">Toggle Log Panel</button>
+    <div id="logPanel"></div>
   </div>
 </main>
-<footer>
-  <div class="checklist">
-    <div class="checklist-item"><input type="checkbox" id="chkCsvParsed" disabled /><label for="chkCsvParsed">CSV parsed</label></div>
-    <div class="checklist-item"><input type="checkbox" id="chkGraphBuilt" disabled /><label for="chkGraphBuilt">Graph built</label></div>
-    <div class="checklist-item"><input type="checkbox" id="chkNoCycles" disabled /><label for="chkNoCycles">No cycles detected</label></div>
-    <div class="checklist-item"><input type="checkbox" id="chkCPMTimes" disabled /><label for="chkCPMTimes">CPM times computed</label></div>
-    <div class="checklist-item"><input type="checkbox" id="chkFFComputed" disabled /><label for="chkFFComputed">Free float computed</label></div>
-    <div class="checklist-item"><input type="checkbox" id="chkPathsEnum" disabled /><label for="chkPathsEnum">Backward paths enumerated</label></div>
-    <div class="checklist-item"><input type="checkbox" id="chkPathsRanked" disabled /><label for="chkPathsRanked">Paths ranked, Top 3 displayed</label></div>
-    <div class="checklist-item"><input type="checkbox" id="chkFilesReady" disabled /><label for="chkFilesReady">Output files generated</label></div>
-    <div class="checklist-item"><input type="checkbox" id="chkLogReview" disabled /><label for="chkLogReview">Log available for review</label></div>
-    <div class="checklist-item"><input type="checkbox" id="chkUnitToggle" disabled /><label for="chkUnitToggle">Unit toggle updates</label></div>
+<div id="helpModal">
+  <div>
+    <span class="closeBtn" id="helpCloseBtn">X</span>
+    <h2>Help</h2>
+    <p>This tool analyzes CPM schedules via backward path enumeration. Use the Settings panel to adjust parameters. Upload your CSV, build the graph, analyze paths, then export results.</p>
+    <p>Keyboard shortcuts:</p>
+    <ul>
+      <li><b>?</b> - Help</li>
+      <li><b>g</b> - Build Graph</li>
+      <li><b>a</b> - Analyze Paths</li>
+      <li><b>e</b> - Export</li>
+      <li><b>l</b> - Toggle Log</li>
+      <li><b>t</b> - Toggle Theme</li>
+    </ul>
   </div>
-  <small id="buildInfo">Build 1.0.0 - (local)</small>
+</div>
+<div id="settingsPanel">
+  <div>
+    <span class="closeBtn" id="settingsCloseBtn">X</span>
+    <h2>Settings</h2>
+    <p>These settings are also available on the left panel. They are provided here in a larger dialog form.</p>
+    <!-- You may replicate any advanced settings or instructions -->
+  </div>
+</div>
+<footer>
+  <h3>Acceptance Checklist</h3>
+  <div id="checklist">
+    <div class="checkItem"><input type="checkbox" id="chkCsvParsed" /> CSV parsed</div>
+    <div class="checkItem"><input type="checkbox" id="chkGraphBuilt" /> Graph built</div>
+    <div class="checkItem"><input type="checkbox" id="chkNoCycles" /> No cycles detected</div>
+    <div class="checkItem"><input type="checkbox" id="chkCPMTimes" /> CPM times computed</div>
+    <div class="checkItem"><input type="checkbox" id="chkFreeFloat" /> Free float computed</div>
+    <div class="checkItem"><input type="checkbox" id="chkBackwardPaths" /> Backward paths enumerated</div>
+    <div class="checkItem"><input type="checkbox" id="chkPathsRanked" /> Paths ranked, Top 3 displayed</div>
+    <div class="checkItem"><input type="checkbox" id="chkOutputsGenerated" /> Output files generated</div>
+    <div class="checkItem"><input type="checkbox" id="chkLogAvailable" /> Log available</div>
+    <div class="checkItem"><input type="checkbox" id="chkUnitToggle" /> Unit toggle updates</div>
+  </div>
+  <div style="margin-top: 1rem;">
+    <span>Build Info: v1.0, <script>document.write(new Date().toLocaleDateString());</script></span>
+    <button id="selfTestBtn">Run Self-Test</button>
+  </div>
 </footer>
 <script>
 (function(){
   "use strict";
-  /* 
-    Global app state
-  */
-  const StateEnum = { Idle:0, CSVLoaded:1, GraphBuilt:2, Analyzed:3, ExportReady:4 };
-  let appState = StateEnum.Idle;
-  let logs = [];
-  let activityMap = new Map(); // key: ActivityID -> node object
-  let adjacencyPredecessors = new Map(); // v -> [u...]
-  let adjacencySuccessors = new Map(); // u -> [v...]
-  let edgesCount = 0;
-  let cycleDetected = false;
-  let pathsResult = [];
-  let canceled = false;
-  let startActivity = null;
-  let topologicalOrder = [];
-  let earliestES = 0;
-  let projectFinishTime = 0;
-  let analysisStartTime = 0;
 
-  /* DOM references */
-  const csvFileInput = document.getElementById("csvFileInput");
-  const csvFileInfo = document.getElementById("csvFileInfo");
-  const buildGraphBtn = document.getElementById("buildGraphBtn");
-  const analyzePathsBtn = document.getElementById("analyzePathsBtn");
-  const cancelBtn = document.getElementById("cancelBtn");
-  const resetBtn = document.getElementById("resetBtn");
-  const exportBtn = document.getElementById("exportBtn");
-  const logPanel = document.getElementById("logPanel");
-  const statusIdle = document.getElementById("statusIdle");
-  const statusCSVLoaded = document.getElementById("statusCSVLoaded");
-  const statusGraphBuilt = document.getElementById("statusGraphBuilt");
-  const statusAnalyzed = document.getElementById("statusAnalyzed");
-  const statusExportReady = document.getElementById("statusExportReady");
-  const progressContainer = document.getElementById("progressContainer");
-  const progressBarFill = document.getElementById("progressBarFill");
-  const activityCountEl = document.getElementById("activityCount");
-  const edgeCountEl = document.getElementById("edgeCount");
-  const cycleDetectedEl = document.getElementById("cycleDetected");
-  const projectFinishEl = document.getElementById("projectFinish");
-  const analysisTimeEl = document.getElementById("analysisTime");
-  const top3TableBody = document.getElementById("top3Table").querySelector("tbody");
-  const detailedPathsTableBody = document.getElementById("detailedPathsTable").querySelector("tbody");
-  const unitsSelect = document.getElementById("unitsSelect");
-  const hoursPerDayInput = document.getElementById("hoursPerDayInput");
-  const fallbackMode = document.getElementById("fallbackMode");
-  const maxPathsInput = document.getElementById("maxPathsInput");
-  const maxDepthInput = document.getElementById("maxDepthInput");
-  const startActivityID = document.getElementById("startActivityID");
-  const selfTestBtn = document.getElementById("selfTestBtn");
-  const chkCsvParsed = document.getElementById("chkCsvParsed");
-  const chkGraphBuilt = document.getElementById("chkGraphBuilt");
-  const chkNoCycles = document.getElementById("chkNoCycles");
-  const chkCPMTimes = document.getElementById("chkCPMTimes");
-  const chkFFComputed = document.getElementById("chkFFComputed");
-  const chkPathsEnum = document.getElementById("chkPathsEnum");
-  const chkPathsRanked = document.getElementById("chkPathsRanked");
-  const chkFilesReady = document.getElementById("chkFilesReady");
-  const chkLogReview = document.getElementById("chkLogReview");
-  const chkUnitToggle = document.getElementById("chkUnitToggle");
-  const csvProgress = document.getElementById("csvProgress");
+  /**********************************************************
+   * GLOBAL / APP STATE
+   **********************************************************/
+  const AppState = {
+    rawCsv: "",
+    csvRows: [],
+    columns: [],
+    activities: new Map(),     // Map of activityID -> activity object
+    edges: [],                // array of edge objects {u,v,relType,lag,FF_edge,...}
+    adjacencyList: {},        // adjacencyList[u] = [v...]
+    predList: {},             // predList[v] = [u...]
+    placeholders: new Set(),  // for placeholder nodes if fallbackMode = placeholder
+    cycleDetected: false,
+    hasGraph: false,
+    hasAnalysis: false,
+    aborted: false,
+    logs: [],
+    startTime: 0,
+    endTime: 0,
+    hoursPerDay: 8,
+    fallbackMode: "strict",
+    units: "days",
+    maxPaths: 250,
+    maxDepth: 500,
+    checklist: {
+      csvParsed: false,
+      graphBuilt: false,
+      noCycles: false,
+      cpmTimes: false,
+      freeFloat: false,
+      backwardPaths: false,
+      pathsRanked: false,
+      outputsGenerated: false,
+      logAvailable: false,
+      unitToggle: false
+    },
+    foundPaths: []
+  };
 
-  /* Logging utility */
-  function logMessage(level, step, message) {
-    const timeStr = new Date().toISOString();
-    const entry = { time: timeStr, level, step, message };
-    logs.push(entry);
-    const div = document.createElement("div");
-    div.classList.add("log-entry");
-    div.textContent = `[${timeStr}] [${level}] [${step}] ${message}`;
-    logPanel.appendChild(div);
-    logPanel.scrollTop = logPanel.scrollHeight;
-  }
-  function setProgress(value) {
-    progressBarFill.style.width = value + "%";
-  }
-  function showProgress(show) {
-    progressContainer.style.display = show ? "block" : "none";
-  }
-  function setStatus(newState) {
-    appState = newState;
-    [statusIdle, statusCSVLoaded, statusGraphBuilt, statusAnalyzed, statusExportReady]
-      .forEach(b => b.classList.remove("active"));
-    switch(appState){
-      case StateEnum.Idle: statusIdle.classList.add("active"); break;
-      case StateEnum.CSVLoaded: statusCSVLoaded.classList.add("active"); break;
-      case StateEnum.GraphBuilt: statusGraphBuilt.classList.add("active"); break;
-      case StateEnum.Analyzed: statusAnalyzed.classList.add("active"); break;
-      case StateEnum.ExportReady: statusExportReady.classList.add("active"); break;
-    }
+  let currentState = "Idle"; 
+  /**********************************************************
+   * UTILITY FUNCTIONS
+   **********************************************************/
+  function log(msg, level="info", step="GEN") {
+    const timestamp = new Date().toLocaleTimeString();
+    let cssClass = "logLine logInfo";
+    if(level === "error") cssClass = "logLine logError";
+    if(level === "warn") cssClass = "logLine logWarn";
+    if(level === "step") cssClass = "logLine logStep";
+    const line = document.createElement("div");
+    line.className = cssClass;
+    line.textContent = `[${timestamp}][${step.toUpperCase()}][${level.toUpperCase()}] ${msg}`;
+    document.getElementById("logPanel").appendChild(line);
+    AppState.logs.push(line.textContent);
   }
   function updateChecklist() {
-    chkCsvParsed.checked = (appState >= StateEnum.CSVLoaded && activityMap.size>0);
-    chkGraphBuilt.checked = (appState >= StateEnum.GraphBuilt);
-    chkNoCycles.checked = (!cycleDetected && (appState >= StateEnum.GraphBuilt));
-    chkCPMTimes.checked = (appState >= StateEnum.GraphBuilt);
-    chkFFComputed.checked = (appState >= StateEnum.GraphBuilt);
-    chkPathsEnum.checked = (appState >= StateEnum.Analyzed && pathsResult.length>0);
-    chkPathsRanked.checked = (appState >= StateEnum.Analyzed && pathsResult.length>0);
-    chkFilesReady.checked = (appState >= StateEnum.ExportReady);
-    chkLogReview.checked = (logs.length>0);
-    chkUnitToggle.checked = true; // we assume it's functional after page load
+    document.getElementById("chkCsvParsed").checked = AppState.checklist.csvParsed;
+    document.getElementById("chkGraphBuilt").checked = AppState.checklist.graphBuilt;
+    document.getElementById("chkNoCycles").checked = AppState.checklist.noCycles;
+    document.getElementById("chkCPMTimes").checked = AppState.checklist.cpmTimes;
+    document.getElementById("chkFreeFloat").checked = AppState.checklist.freeFloat;
+    document.getElementById("chkBackwardPaths").checked = AppState.checklist.backwardPaths;
+    document.getElementById("chkPathsRanked").checked = AppState.checklist.pathsRanked;
+    document.getElementById("chkOutputsGenerated").checked = AppState.checklist.outputsGenerated;
+    document.getElementById("chkLogAvailable").checked = AppState.checklist.logAvailable;
+    document.getElementById("chkUnitToggle").checked = AppState.checklist.unitToggle;
   }
-
-  /* Button states */
-  function updateButtonStates() {
-    buildGraphBtn.disabled = (appState < StateEnum.CSVLoaded);
-    analyzePathsBtn.disabled = (appState < StateEnum.GraphBuilt || cycleDetected || !startActivityID.value.trim());
-    exportBtn.disabled = (appState < StateEnum.Analyzed || pathsResult.length===0);
+  function setState(newState) {
+    currentState = newState;
   }
-
-  function resetAll() {
-    if(!confirm("Are you sure you want to reset?")) return;
-    location.reload();
-  }
-
-  /* CSV Parsing */
-  csvFileInput.addEventListener("change", function(){
-    if(!csvFileInput.files || !csvFileInput.files[0]) return;
-    const file = csvFileInput.files[0];
-    if(file.size > 10 * 1024 * 1024) {
-      logMessage("WARN","LOAD_CSV","File exceeds 10 MB limit");
-    }
-    parseCSVFile(file);
-  });
-  function parseCSVFile(file) {
-    logMessage("INFO","LOAD_CSV","Parsing CSV file: "+file.name);
-    const reader = new FileReader();
-    reader.onload = function(e){
-      const text = e.target.result;
-      processCSVText(text);
-    };
-    reader.onprogress = function(e){
-      if(e.lengthComputable) {
-        const percent = Math.floor((e.loaded / e.total)*100);
-        csvProgress.value = percent;
+  function sanitize(str) {
+    // Basic sanitization for any dynamic text
+    return str.replace(/[<>&"']/g, function(c){
+      switch(c){
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '&': return '&amp;';
+        case '"': return '&quot;';
+        case "'": return '&#39;';
       }
-    };
-    reader.readAsText(file);
+      return c;
+    });
   }
-  function processCSVText(text) {
-    logMessage("INFO","VALIDATE_SCHEMA","Processing CSV text");
-    showProgress(true);
-    setProgress(0);
-    setStatus(StateEnum.Idle);
-
-    activityMap.clear();
-    adjacencyPredecessors.clear();
-    adjacencySuccessors.clear();
-    edgesCount=0; cycleDetected=false; pathsResult=[];
-    topologicalOrder=[]; earliestES=0; projectFinishTime=0;
-    canceled=false;
-
-    let lines = text.split(/\r?\n/);
-    let header = lines[0].split(",");
-    if(!validateHeader(header)) {
-      logMessage("ERROR","VALIDATE_SCHEMA","CSV header is invalid; cannot proceed");
-      showProgress(false);
-      return;
-    }
-    const numRows = lines.length-1;
-    let rowCount = 0;
-    for(let i=1;i<lines.length;i++){
-      let line = lines[i].trim();
-      if(!line) continue;
-      setProgress( (i/lines.length)*75 );
-      let cols = line.split(",");
-      if(cols.length<14) {
-        logMessage("WARN","LOAD_CSV","Row "+i+" has fewer columns than expected");
-        continue;
-      }
-      const rowObj = transformRow(header, cols, i);
-      if(rowObj) rowCount++;
-      if(rowCount>70500) {
-        logMessage("WARN","LOAD_CSV","Row count exceeds 70,500. Possible limit issues.");
-        break;
-      }
-      if(canceled) break;
-    }
-    setProgress(75);
-    if(canceled) {
-      logMessage("WARN","LOAD_CSV","Loading canceled");
-      showProgress(false);
-      return;
-    }
-    csvFileInfo.textContent = "Loaded "+rowCount+" rows.";
-    setStatus(StateEnum.CSVLoaded);
-    updateButtonStates();
-    updateChecklist();
-    showProgress(false);
-    setProgress(0);
-  }
-  function validateHeader(hdr) {
-    const required = [
+  /**********************************************************
+   * CSV LOADING & PARSING
+   **********************************************************/
+  function parseCsv(csvText) {
+    log("Parsing CSV", "info", "LOAD_CSV");
+    const lines = csvText.split(/\r?\n/);
+    if(!lines.length) return;
+    let headerRow = lines[0].split(",");
+    AppState.columns = headerRow.map(h => h.trim());
+    // Validate schema
+    const requiredHeaders = [
       "Project ID","Activity ID","Activity Name","Activity Type","At Completion Duration",
-      "Start","Finish","Activity Status","Total Float","Primary Constraint","Predecessor Details",
-      "Predecessors","Successor Details","Successors"
+      "Start","Finish","Activity Status","Total Float","Primary Constraint",
+      "Predecessor Details","Predecessors","Successor Details","Successors"
     ];
-    if(hdr.length<required.length) return false;
-    for(let i=0;i<required.length;i++){
-      if(hdr[i].trim() !== required[i]) {
-        return false;
+    for(const rh of requiredHeaders) {
+      if(!AppState.columns.includes(rh)) {
+        log("Missing required header: " + rh, "error", "VALIDATE_SCHEMA");
+        return;
       }
     }
-    return true;
+    // Mark checklist
+    AppState.checklist.csvParsed = true;
+    updateChecklist();
+    let rowCount = 0;
+    // For each line (excluding header)
+    for(let i=1; i<lines.length; i++){
+      const row = lines[i].split(",");
+      if(row.length < AppState.columns.length) {
+        // ignore short row, or handle partial
+        continue;
+      }
+      rowCount++;
+      const rowObj = {};
+      for(let c=0; c<AppState.columns.length; c++){
+        rowObj[AppState.columns[c]] = row[c] ? row[c].trim() : "";
+      }
+      AppState.csvRows.push(rowObj);
+    }
+    log(`Parsed CSV with ${rowCount} data rows`, "info", "LOAD_CSV");
   }
-  function transformRow(header, cols, rowIndex){
-    let obj = {};
-    for(let c=0;c<header.length;c++){
-      obj[header[c]] = cols[c].trim();
-    }
-    // Basic extraction
-    const actId = obj["Activity ID"];
-    if(!actId) {
-      logMessage("WARN","LOAD_CSV","Row "+rowIndex+": missing Activity ID");
-      return null;
-    }
-    if(activityMap.has(actId)) {
-      logMessage("WARN","LOAD_CSV","Duplicate Activity ID found: "+actId+" (ignoring subsequent)");
-      return null;
-    }
-    let duration = parseFloat(obj["At Completion Duration"]);
-    if(isNaN(duration)) {
-      duration=0;
-      logMessage("WARN","LOAD_CSV","Row "+rowIndex+" invalid duration, defaulting to 0");
-    }
-    let status = obj["Activity Status"];
-    if(!status) {
-      status="not started";
-      logMessage("WARN","LOAD_CSV","Row "+rowIndex+" missing status, set to 'not started'");
-    }
-    status = status.toLowerCase();
-    const node = {
-      ActivityID: actId,
-      Duration: duration,
-      Status: status,
-      ES: null, EF: null, LS: null, LF: null
-    };
-    activityMap.set(actId, node);
-    adjacencyPredecessors.set(actId, []);
-    adjacencySuccessors.set(actId, []);
-    return node;
-  }
-
-  /* Graph building */
-  buildGraphBtn.addEventListener("click", buildGraph);
-  document.addEventListener("keydown", (e)=>{
-    if(e.key==="g") { if(!buildGraphBtn.disabled) buildGraph(); }
-    if(e.key==="a") { if(!analyzePathsBtn.disabled) analyzePaths(); }
-    if(e.key==="e") { if(!exportBtn.disabled) exportAll(); }
-    if(e.key==="?") { /* show help modal - omitted for brevity */ }
-    if(e.key==="l") { /* toggle log - omitted for brevity */ }
-    if(e.key==="t") { toggleTheme(); }
-  });
+  /**********************************************************
+   * BUILD GRAPH
+   **********************************************************/
   function buildGraph() {
-    logMessage("INFO","BUILD_GRAPH","Constructing adjacency lists");
-    activityMap.forEach((node, id)=>{
-      // CSV has Predecessors col at index 11. We need to get them from raw, but we've lost them. We need them from text?
-      // For real usage we'd parse them in 'transformRow', but to keep short, let's do a quick pass here.
-      // We'll do a naive approach ignoring advanced references. This is a simplified placeholder.
-      // In real usage we'd store the raw line data for adjacency. For brevity, we won't parse them again from text.
-      // We'll pretend no edges are built. In practice, you'd store adjacency from the CSV. 
-    });
-    edgesCount = 0;
-    activityCountEl.textContent = activityMap.size;
-    edgeCountEl.textContent = edgesCount;
-    setStatus(StateEnum.GraphBuilt);
-    logMessage("INFO","BUILD_GRAPH","Graph built.");
-    updateButtonStates();
-    updateChecklist();
-    // Next: topological sort, forward pass, backward pass
-    cpmAnalysis();
-  }
+    log("Building graph from CSV rows", "info", "BUILD_GRAPH");
+    // Clear existing
+    AppState.activities.clear();
+    AppState.edges = [];
+    AppState.adjacencyList = {};
+    AppState.predList = {};
+    AppState.placeholders.clear();
+    AppState.cycleDetected = false;
+    AppState.foundPaths = [];
 
-  function cpmAnalysis() {
-    if(appState<StateEnum.GraphBuilt) return;
-    logMessage("INFO","TOPO_SORT","Performing topological sort (Kahn's Algorithm)");
-    let inDegree = new Map();
-    // Build in-degree from adjacencyPredecessors
-    activityMap.forEach((node, id)=>{
-      inDegree.set(id, adjacencyPredecessors.get(id).length);
-    });
-    let queue = [];
-    inDegree.forEach((val, key)=>{
-      if(val===0) queue.push(key);
-    });
-    topologicalOrder = [];
-    while(queue.length>0){
-      const u = queue.shift();
-      topologicalOrder.push(u);
-      adjacencySuccessors.get(u).forEach(v=>{
-        const deg = inDegree.get(v)-1;
-        inDegree.set(v, deg);
-        if(deg===0) queue.push(v);
-      });
-    }
-    if(topologicalOrder.length<activityMap.size) {
-      cycleDetected=true;
-      cycleDetectedEl.textContent="Yes";
-      logMessage("ERROR","TOPO_SORT","Cycle detected, analysis blocked");
-      return;
-    }
-    cycleDetectedEl.textContent="No";
-    chkNoCycles.checked = true;
-    
-    logMessage("INFO","FORWARD_PASS","Computing ES, EF");
-    // Forward pass
-    topologicalOrder.forEach(id=>{
-      const node = activityMap.get(id);
-      let ES = 0;
-      adjacencyPredecessors.get(id).forEach(p=>{
-        const pnode = activityMap.get(p);
-        if(pnode && pnode.EF!==null) {
-          ES = Math.max(ES, pnode.EF);
-        }
-      });
-      node.ES = ES;
-      node.EF = ES + node.Duration;
-    });
-    earliestES = Math.min(...[...activityMap.values()].map(n=>n.ES||0));
-    projectFinishTime = Math.max(...[...activityMap.values()].map(n=>n.EF||0));
-    projectFinishEl.textContent = projectFinishTime.toString();
-    
-    logMessage("INFO","BACKWARD_PASS","Computing LS, LF");
-    // Backward pass
-    [...topologicalOrder].reverse().forEach(id=>{
-      const node = activityMap.get(id);
-      let LF = projectFinishTime;
-      let succList = adjacencySuccessors.get(id);
-      if(succList.length>0) {
-        LF = Math.min(...succList.map(s=>{
-          const snode = activityMap.get(s);
-          return (snode? snode.LS: projectFinishTime);
-        }));
-      }
-      node.LF = LF;
-      node.LS = LF - node.Duration;
-    });
-    chkCPMTimes.checked=true;
-    
-    logMessage("INFO","FF_EDGES","Computing per-edge Free Float");
-    adjacencySuccessors.forEach((arr,u)=>{
-      arr.forEach(v=>{
-        const uNode = activityMap.get(u);
-        const vNode = activityMap.get(v);
-        if(!uNode || uNode.EF===null || !vNode || vNode.ES===null) {
-          logMessage("ERROR","FF_EDGES","Cannot compute FF for edge "+u+"->"+v);
-          return;
-        }
-        // store on vNode? We'll store in a subMap if we like
-        // for brevity, we won't store, just compute on the fly later
-      });
-    });
-    chkFFComputed.checked=true;
-  }
-
-  /* Analyze Paths (Backward) */
-  analyzePathsBtn.addEventListener("click", analyzePaths);
-  function analyzePaths() {
-    canceled = false;
-    analysisStartTime = performance.now();
-    const inputID = startActivityID.value.trim();
-    if(!inputID) {
-      logMessage("ERROR","ENUMERATE_PATHS","Start Activity ID is empty");
-      return;
-    }
-    if(!activityMap.has(inputID)) {
-      logMessage("ERROR","ENUMERATE_PATHS","Start Activity not found: "+inputID);
-      return;
-    }
-    startActivity = inputID;
-    logMessage("INFO","ENUMERATE_PATHS","Enumerating backward paths from "+startActivity);
-    let maxPaths = parseInt(maxPathsInput.value,10)||250;
-    let maxDepth = parseInt(maxDepthInput.value,10)||500;
-    pathsResult = gatherBackwardPaths(startActivity, maxPaths, maxDepth);
-    logMessage("INFO","ENUMERATE_PATHS","Found "+pathsResult.length+" paths");
-    rankPaths(pathsResult);
-    renderTop3(pathsResult);
-    renderAllPaths(pathsResult);
-    setStatus(StateEnum.Analyzed);
-    updateButtonStates();
-    const endTime = performance.now();
-    analysisTimeEl.textContent = (endTime-analysisStartTime).toFixed(1)+" ms";
-    updateChecklist();
-  }
-  function gatherBackwardPaths(startID, maxPaths, maxDepth) {
-    let results = [];
-    let stack = [{current:startID, path:[startID], edgesFF:[], totalFF:0}];
-    while(stack.length>0 && results.length<maxPaths && !canceled) {
-      const frame = stack.pop();
-      const currID = frame.current;
-      const node = activityMap.get(currID);
-      if(!node) continue;
-      // If node is "completed" and (not the start or the start is also completed), we finalize path
-      const isStartCompleted = (startID === currID && node.Status==="completed");
-      if(node.Status==="completed" && !isStartCompleted && frame.path.length>1){
-        results.push({ path: frame.path, edgesFF: frame.edgesFF, totalFF: frame.totalFF });
+    // READ ROWS
+    for(let i=0; i<AppState.csvRows.length; i++){
+      const r = AppState.csvRows[i];
+      const id = r["Activity ID"];
+      if(!id) {
+        log("Row has empty Activity ID, ignoring", "warn", "BUILD_GRAPH");
         continue;
       }
-      if(frame.path.length>=maxDepth) {
-        logMessage("WARN","ENUMERATE_PATHS","MaxDepth exceeded on path "+frame.path.join(">"));
+      // Check duplicates
+      if(AppState.activities.has(id)) {
+        log(`Duplicate Activity ID: ${id}. Keeping first, ignoring this`, "warn", "BUILD_GRAPH");
         continue;
       }
-      const preds = adjacencyPredecessors.get(currID)||[];
-      for(let p of preds) {
-        if(!activityMap.has(p)) {
-          if(fallbackMode.value==="placeholder") {
-            // placeholder logic (not fully implemented)
-          } else {
-            continue;
-          }
-        }
-        if(frame.path.indexOf(p)>-1) {
-          continue; // avoid cycles in path
-        }
-        let pNode = activityMap.get(p);
-        if(!pNode || pNode.EF===null || node.ES===null) {
-          // edge FF not computed
+      // Basic parse
+      let dur = parseInt(r["At Completion Duration"], 10);
+      if(isNaN(dur)) {
+        log(`Invalid duration for ${id}, defaulting to 0`, "warn", "BUILD_GRAPH");
+        dur = 0;
+      }
+      let status = r["Activity Status"];
+      if(!status) {
+        log(`Missing status for ${id}, setting to "not started"`, "warn", "BUILD_GRAPH");
+        status = "not started";
+      } else {
+        status = status.toLowerCase();
+      }
+      let actObj = {
+        activityId: id,
+        duration: dur,
+        status: status,
+        ES: 0, EF: 0, LS: 0, LF: 0,  // could store early/late times here
+      };
+      AppState.activities.set(id, actObj);
+      AppState.adjacencyList[id] = [];
+      AppState.predList[id] = [];
+    }
+
+    // Parse "Predecessor Details", ignoring "Predecessors"
+    for(let i=0; i<AppState.csvRows.length; i++) {
+      const r = AppState.csvRows[i];
+      const succId = r["Activity ID"];
+      const detail = r["Predecessor Details"] || "";
+      if(!succId) continue;
+      if(!detail.trim()) continue;
+
+      // multiple relationships, separated by commas
+      const relations = detail.split(/\s*,\s*/);
+      for(const rel of relations) {
+        if(!rel.trim()) continue;
+        // Format: UpstreamID: RelationshipType optionalLag
+        // e.g. "DPFG1940: FF -30"
+        const parts = rel.split(":");
+        if(parts.length < 2) {
+          log(`Invalid predecessor detail for ${succId}: ${rel}`, "warn", "BUILD_GRAPH");
           continue;
         }
-        let ffEdge = node.ES - pNode.EF;
-        let newPath = frame.path.slice();
-        newPath.push(p);
-        let newEdgesFF = frame.edgesFF.slice();
-        newEdgesFF.push({u:p, v:currID, ff:ffEdge});
-        stack.push({
-          current: p,
-          path: newPath,
-          edgesFF: newEdgesFF,
-          totalFF: frame.totalFF + ffEdge
+        const predId = parts[0].trim();
+        const rest = parts[1].trim().split(/\s+/);
+        // rest[0] = RelationshipType, e.g. "FS" or "FF"
+        // rest[1] = optionalLag (maybe)
+
+        if(!predId) {
+          log(`Empty predecessor ID for ${succId}`, "warn", "BUILD_GRAPH");
+          continue;
+        }
+        let relationshipType = (rest[0]||"").toUpperCase();
+        if(relationshipType !== "FS" && relationshipType !== "FF") {
+          log(`Invalid relationship type for ${succId}: ${rel}`, "warn", "BUILD_GRAPH");
+          continue;
+        }
+        let lag = 0;
+        if(rest.length > 1) {
+          let parsedLag = parseInt(rest[1], 10);
+          if(!isNaN(parsedLag)) {
+            lag = parsedLag;
+          }
+        }
+        // Check if predId is known
+        if(!AppState.activities.has(predId)) {
+          // fallback
+          if(AppState.fallbackMode === "strict") {
+            log(`Missing predecessor ID ${predId} for ${succId}, ignoring edge`, "error", "BUILD_GRAPH");
+            continue;
+          } else {
+            // placeholder
+            if(!AppState.activities.has("MISSING:"+predId)) {
+              AppState.activities.set("MISSING:"+predId, {
+                activityId: "MISSING:"+predId,
+                duration: 0,
+                status: "unknown"
+              });
+              AppState.adjacencyList["MISSING:"+predId] = [];
+              AppState.predList["MISSING:"+predId] = [];
+              AppState.placeholders.add("MISSING:"+predId);
+            }
+          }
+        }
+        const truePredId = AppState.activities.has(predId) ? predId : ("MISSING:"+predId);
+
+        // Build edge
+        const edge = {
+          u: truePredId,
+          v: succId,
+          relType: relationshipType,
+          lag: lag,
+          FF_edge: null
+        };
+        AppState.edges.push(edge);
+        AppState.adjacencyList[truePredId].push(succId);
+        AppState.predList[succId].push(truePredId);
+      }
+    }
+    log(`Built graph with ${AppState.activities.size} activities and ${AppState.edges.length} edges`, "info", "BUILD_GRAPH");
+    AppState.checklist.graphBuilt = true;
+    updateChecklist();
+    AppState.hasGraph = true;
+    detectCycles();
+  }
+
+  function detectCycles() {
+    // Kahn's Algorithm attempt
+    log("Checking for cycles (Kahn's algorithm)", "info", "TOPO_SORT");
+    // build in-degree
+    const inDegree = {};
+    for(const [id] of AppState.activities) {
+      inDegree[id] = 0;
+    }
+    for(const e of AppState.edges) {
+      inDegree[e.v] = (inDegree[e.v] || 0) + 1;
+    }
+    const queue = [];
+    for(const [id] of AppState.activities) {
+      if(inDegree[id] === 0) queue.push(id);
+    }
+    let visitedCount = 0;
+    while(queue.length) {
+      const n = queue.shift();
+      visitedCount++;
+      (AppState.adjacencyList[n]||[]).forEach(succ => {
+        inDegree[succ] -= 1;
+        if(inDegree[succ] === 0) {
+          queue.push(succ);
+        }
+      });
+    }
+    if(visitedCount < AppState.activities.size) {
+      log("Cycle detected in graph. Analysis blocked.", "error", "TOPO_SORT");
+      AppState.cycleDetected = true;
+      AppState.checklist.noCycles = false;
+    } else {
+      log("No cycle detected", "info", "TOPO_SORT");
+      AppState.cycleDetected = false;
+      AppState.checklist.noCycles = true;
+    }
+    updateChecklist();
+  }
+
+  /**********************************************************
+   * CPM FORWARD & BACKWARD PASSES
+   **********************************************************/
+  function computeCPM() {
+    if(AppState.cycleDetected) {
+      log("Cannot compute CPM due to cycle", "error", "FORWARD_PASS");
+      return;
+    }
+    log("Computing CPM forward pass", "info", "FORWARD_PASS");
+    // Topological order again
+    const topo = [];
+    const inDegree = {};
+    for(const [id] of AppState.activities) {
+      inDegree[id] = 0;
+      AppState.activities.get(id).ES = 0;
+      AppState.activities.get(id).EF = 0;
+      AppState.activities.get(id).LS = 0;
+      AppState.activities.get(id).LF = 0;
+    }
+    for(const e of AppState.edges) {
+      inDegree[e.v]++;
+    }
+    const queue = [];
+    for(const [id] of AppState.activities) {
+      if(inDegree[id] === 0) {
+        queue.push(id);
+        // ES=0, EF=dur
+        AppState.activities.get(id).ES = 0;
+        AppState.activities.get(id).EF = AppState.activities.get(id).duration;
+      }
+    }
+    while(queue.length) {
+      const n = queue.shift();
+      topo.push(n);
+      (AppState.adjacencyList[n]||[]).forEach(succ => {
+        inDegree[succ]--;
+        const predAct = AppState.activities.get(n);
+        const succAct = AppState.activities.get(succ);
+        // Check edges from n->succ
+        const edgesNsucc = AppState.edges.filter(e=> e.u===n && e.v===succ);
+        edgesNsucc.forEach(ed=>{
+          if(ed.relType === "FS") {
+            // ES(succ) = max( ES(succ), EF(pred) + lag )
+            const newES = predAct.EF + ed.lag;
+            if(newES > succAct.ES) {
+              succAct.ES = newES;
+            }
+          } else if(ed.relType === "FF") {
+            // EF(succ) = max( EF(succ), EF(pred) + lag )
+            const newEF = predAct.EF + ed.lag;
+            if(newEF > succAct.EF) {
+              succAct.EF = newEF;
+            }
+          }
+        });
+        // recalc EF from ES if FS or if EF < ES+dur
+        succAct.EF = Math.max(succAct.EF, succAct.ES + succAct.duration);
+        if(inDegree[succ] === 0) {
+          queue.push(succ);
+        }
+      });
+    }
+    // project finish
+    let PF = 0;
+    for(const [id,a] of AppState.activities) {
+      if(a.EF > PF) PF = a.EF;
+    }
+    log("Computing CPM backward pass, PF="+PF, "info", "BACKWARD_PASS");
+    // backward pass
+    for(const [id] of AppState.activities) {
+      AppState.activities.get(id).LF = PF;
+      AppState.activities.get(id).LS = PF - AppState.activities.get(id).duration;
+    }
+    // reverse topo
+    topo.reverse().forEach(n=>{
+      const thisAct = AppState.activities.get(n);
+      const succs = AppState.adjacencyList[n] || [];
+      if(succs.length === 0) {
+        // no successors - done
+      } else {
+        // LS, LF from successors
+        succs.forEach(succ=>{
+          const succAct = AppState.activities.get(succ);
+          const edgesNsucc = AppState.edges.filter(e=> e.u===n && e.v===succ);
+          edgesNsucc.forEach(ed=>{
+            if(ed.relType === "FS") {
+              // LS(n) = min( LS(n), ES(succ) - lag ) 
+              const potentialLS = succAct.ES - ed.lag - thisAct.duration;
+              if(potentialLS < thisAct.LS) {
+                thisAct.LS = potentialLS;
+                thisAct.LF = thisAct.LS + thisAct.duration;
+              }
+            } else if(ed.relType === "FF") {
+              // LF(n) = min( LF(n), EF(succ) - lag )
+              const potentialLF = succAct.EF - ed.lag;
+              if(potentialLF < thisAct.LF) {
+                thisAct.LF = potentialLF;
+                thisAct.LS = thisAct.LF - thisAct.duration;
+              }
+            }
+          });
         });
       }
-    }
-    return results;
-  }
-  function rankPaths(paths) {
-    logMessage("INFO","RANK_PATHS","Ranking paths");
-    paths.forEach((p)=>{
-      p.edgesCount = p.path.length-1;
-      p.idSequence = p.path.slice().reverse().join(">");
     });
-    paths.sort((a,b)=>{
-      // primary: ascending totalFF
-      if(a.totalFF!==b.totalFF) return a.totalFF - b.totalFF;
-      // secondary: edgesCount
-      if(a.edgesCount!==b.edgesCount) return a.edgesCount - b.edgesCount;
-      // tertiary: lexicographic
-      if(a.idSequence<b.idSequence) return -1;
-      if(a.idSequence>b.idSequence) return 1;
+    AppState.checklist.cpmTimes = true;
+    updateChecklist();
+    // compute free float on edges
+    computeEdgeFF();
+  }
+
+  function computeEdgeFF() {
+    log("Computing per-edge FF", "info", "FF_EDGES");
+    let errorCount = 0;
+    for(const e of AppState.edges) {
+      const predAct = AppState.activities.get(e.u);
+      const succAct = AppState.activities.get(e.v);
+      if(!predAct || !succAct) {
+        log(`Missing node in edge ${e.u}->${e.v}`, "error", "FF_EDGES");
+        e.FF_edge = null;
+        errorCount++;
+        continue;
+      }
+      if(e.relType === "FS") {
+        e.FF_edge = succAct.ES - (predAct.EF + e.lag);
+      } else if(e.relType === "FF") {
+        e.FF_edge = succAct.EF - (predAct.EF + e.lag);
+      }
+    }
+    AppState.checklist.freeFloat = true;
+    updateChecklist();
+  }
+
+  /**********************************************************
+   * BACKWARD PATH ENUMERATION (DFS)
+   **********************************************************/
+  function enumeratePaths(startId) {
+    log(`Enumerating backward paths from ${startId}`, "info", "ENUMERATE_PATHS");
+    AppState.foundPaths = [];
+    if(!AppState.activities.has(startId)) {
+      log("Start ID not found, no paths", "warn", "ENUMERATE_PATHS");
+      return;
+    }
+    const startAct = AppState.activities.get(startId);
+    if(startAct.status === "completed") {
+      // Include zero-edge path
+      AppState.foundPaths.push({
+        path: [startId],
+        totalFF: 0,
+        edgesCount: 0,
+        terminalId: startId,
+        bottleneckEdgeFF: Infinity,
+        aborted: false
+      });
+      log("Start is completed, single path with zero edges", "info", "ENUMERATE_PATHS");
+      return;
+    }
+
+    const stack = [{ current: startId, visited: new Set([startId]), path: [startId], totalFF: 0, minFF: Infinity }];
+    let enumeratedCount = 0;
+    while(stack.length > 0) {
+      const frame = stack.pop();
+      const current = frame.current;
+      const preds = AppState.predList[current] || [];
+      // if no preds, stop
+      if(!preds.length) {
+        // no further expansion
+        continue;
+      }
+      for(const p of preds) {
+        // Check placeholder
+        if(AppState.placeholders.has(p)) {
+          continue; // do not go beyond placeholders
+        }
+        // If completed, we form a full path
+        const pAct = AppState.activities.get(p);
+        if(!pAct) continue;
+        if(pAct.status === "completed") {
+          // finalize path
+          const edgesCount = frame.path.length;
+          // forward direction: p->(next)
+          // but we are enumerating backward, so find edge from p->current
+          const edgeObj = AppState.edges.find(e=> (e.u===p && e.v===current));
+          let edgeFF = edgeObj ? edgeObj.FF_edge : 0;
+          const totalFF = frame.totalFF + (edgeFF || 0);
+          let minFF = Math.min(frame.minFF, (edgeFF||Infinity));
+          if(frame.minFF===Infinity) minFF = (edgeFF||Infinity);
+          const newPath = [...frame.path, p];
+          newPath.reverse(); // so it's from start->...->p in forward sense
+          AppState.foundPaths.push({
+            path: newPath,
+            totalFF,
+            edgesCount,
+            terminalId: p,
+            bottleneckEdgeFF: minFF,
+            aborted: false
+          });
+          enumeratedCount++;
+          if(enumeratedCount >= AppState.maxPaths) {
+            log(`Reached MaxPaths (${AppState.maxPaths}) limit`, "warn", "ENUMERATE_PATHS");
+            return;
+          }
+        } else {
+          if(frame.path.length+1 > AppState.maxDepth) {
+            log("MaxDepth reached, stopping deeper enumeration", "warn", "ENUMERATE_PATHS");
+            continue;
+          }
+          if(frame.visited.has(p)) {
+            // avoid cycle in path
+            continue;
+          }
+          // push new frame
+          const edgeObj = AppState.edges.find(e=> (e.u===p && e.v===current));
+          let edgeFF = edgeObj ? edgeObj.FF_edge : 0;
+          if(edgeFF == null) { edgeFF=0; }
+          const newTotalFF = frame.totalFF + edgeFF;
+          let newMinFF = Math.min(frame.minFF, edgeFF);
+          if(frame.minFF===Infinity) newMinFF = edgeFF;
+          const newVisited = new Set(frame.visited);
+          newVisited.add(p);
+          const newPath = [...frame.path, p];
+          stack.push({
+            current: p,
+            visited: newVisited,
+            path: newPath,
+            totalFF: newTotalFF,
+            minFF: newMinFF
+          });
+        }
+      }
+    }
+    AppState.checklist.backwardPaths = true;
+    updateChecklist();
+  }
+
+  /**********************************************************
+   * RANK PATHS
+   **********************************************************/
+  function rankPaths() {
+    log("Ranking paths", "info", "RANK_PATHS");
+    AppState.foundPaths.forEach((p,i)=>{
+      p.idSequence = p.path.join(">");
+    });
+    AppState.foundPaths.sort((a,b)=>{
+      // primary: totalFF ascending
+      if(a.totalFF < b.totalFF) return -1;
+      if(a.totalFF > b.totalFF) return 1;
+      // secondary: edgesCount ascending
+      if(a.edgesCount < b.edgesCount) return -1;
+      if(a.edgesCount > b.edgesCount) return 1;
+      // tertiary: lexicographic of idSequence
+      if(a.idSequence < b.idSequence) return -1;
+      if(a.idSequence > b.idSequence) return 1;
       return 0;
     });
-    paths.forEach((p,idx)=>p.rank=idx+1);
+    AppState.foundPaths.forEach((p,i)=> p.rank = i+1 );
+    AppState.checklist.pathsRanked = true;
+    updateChecklist();
   }
-  function renderTop3(paths) {
-    top3TableBody.innerHTML="";
-    let top3 = paths.slice(0,3);
+
+  function refreshResults() {
+    // top 3 table
+    const top3Body = document.querySelector("#top3PathsTable tbody");
+    top3Body.innerHTML = "";
+    const top3 = AppState.foundPaths.slice(0,3);
     top3.forEach(p=>{
-      const tr = document.createElement("tr");
-      const tds = [
-        p.rank,
-        formatFF(p.totalFF),
-        p.edgesCount,
-        formatFF(Math.min(...p.edgesFF.map(e=>e.ff))),
-        p.path[p.path.length-1],
-        p.path.slice().reverse().join(">")
-      ];
-      tds.forEach(val=>{
-        const td = document.createElement("td");
-        td.textContent = val;
-        tr.appendChild(td);
-      });
-      top3TableBody.appendChild(tr);
+      let tr = document.createElement("tr");
+      let tdRank = document.createElement("td");
+      tdRank.textContent = p.rank;
+      let tdTotalFF = document.createElement("td");
+      tdTotalFF.textContent = formatFF(p.totalFF);
+      let tdEdges = document.createElement("td");
+      tdEdges.textContent = p.edgesCount;
+      let tdBottleneck = document.createElement("td");
+      tdBottleneck.textContent = formatFF(p.bottleneckEdgeFF);
+      let tdTerm = document.createElement("td");
+      tdTerm.textContent = p.terminalId;
+      let tdPath = document.createElement("td");
+      tdPath.textContent = p.path.join("->");
+      tr.appendChild(tdRank);
+      tr.appendChild(tdTotalFF);
+      tr.appendChild(tdEdges);
+      tr.appendChild(tdBottleneck);
+      tr.appendChild(tdTerm);
+      tr.appendChild(tdPath);
+      top3Body.appendChild(tr);
+    });
+    // detailed table
+    const detBody = document.querySelector("#detailedPathsTable tbody");
+    detBody.innerHTML = "";
+    AppState.foundPaths.forEach(p=>{
+      let tr = document.createElement("tr");
+      let tdRank = document.createElement("td");
+      tdRank.textContent = p.rank;
+      let tdTotalFFdays = document.createElement("td");
+      tdTotalFFdays.textContent = p.totalFF.toFixed(2);
+      let tdTotalFFhours = document.createElement("td");
+      tdTotalFFhours.textContent = (p.totalFF*AppState.hoursPerDay).toFixed(2);
+      let tdEdges = document.createElement("td");
+      tdEdges.textContent = p.edgesCount;
+      let tdBottleneck = document.createElement("td");
+      tdBottleneck.textContent = p.bottleneckEdgeFF.toFixed(2);
+      let tdBottleneckEdge = document.createElement("td");
+      tdBottleneckEdge.textContent = "N/A";
+      let tdTerm = document.createElement("td");
+      tdTerm.textContent = p.terminalId;
+      let tdPath = document.createElement("td");
+      tdPath.textContent = p.path.join("->");
+      let edFF = [];
+      for(let i=0; i<p.path.length-1; i++){
+        // forward edge p.path[i]->p.path[i+1]
+        let eObj = AppState.edges.find(e=> e.u===p.path[i] && e.v===p.path[i+1]);
+        if(eObj && eObj.FF_edge!=null) {
+          edFF.push(eObj.FF_edge.toFixed(2));
+        } else {
+          edFF.push("?");
+        }
+      }
+      let tdEdgeFF = document.createElement("td");
+      tdEdgeFF.textContent = edFF.join(";");
+      let tdAborted = document.createElement("td");
+      tdAborted.textContent = p.aborted ? "true" : "false";
+      let tdNotes = document.createElement("td");
+      tdNotes.textContent = "";
+      tr.appendChild(tdRank);
+      tr.appendChild(tdTotalFFdays);
+      tr.appendChild(tdTotalFFhours);
+      tr.appendChild(tdEdges);
+      tr.appendChild(tdBottleneck);
+      tr.appendChild(tdBottleneckEdge);
+      tr.appendChild(tdTerm);
+      tr.appendChild(tdPath);
+      tr.appendChild(tdEdgeFF);
+      tr.appendChild(tdAborted);
+      tr.appendChild(tdNotes);
+      detBody.appendChild(tr);
     });
   }
-  function renderAllPaths(paths) {
-    detailedPathsTableBody.innerHTML="";
-    paths.forEach(p=>{
-      const tr = document.createElement("tr");
-      let bottleneckFF = p.edgesFF.length>0 ? Math.min(...p.edgesFF.map(e=>e.ff)) : 0;
-      let pathIDsStr = p.path.slice().reverse().join(">");
-      let edgeListStr = p.edgesFF.map(e=>e.u+"->"+e.v+"("+formatFF(e.ff)+")").join(";");
-      const tds = [
-        p.rank,
-        formatFF(p.totalFF),
-        p.edgesCount,
-        formatFF(bottleneckFF),
-        p.path[p.path.length-1],
-        pathIDsStr,
-        p.edgesFF.map(e=>formatFF(e.ff)).join(";"),
-        ""
-      ];
-      tds.forEach((val)=>{
-        const td = document.createElement("td");
-        td.textContent = val;
-        tr.appendChild(td);
-      });
-      detailedPathsTableBody.appendChild(tr);
-    });
-  }
-  function formatFF(ff) {
-    const units = unitsSelect.value;
-    let hpday = parseFloat(hoursPerDayInput.value)||8;
-    if(units==="hours") {
-      let val = ff*hpday;
-      return val.toFixed(2);
+
+  function formatFF(ffVal) {
+    if(AppState.units==="days") {
+      return ffVal.toFixed(2)+" d";
     } else {
-      return ff.toFixed(2);
+      return (ffVal*AppState.hoursPerDay).toFixed(2)+" h";
     }
   }
-  /* Cancel operation */
-  cancelBtn.addEventListener("click", function(){
-    canceled = true;
-    logMessage("WARN","CANCEL","User canceled ongoing operation");
-  });
-  /* Export files & logs */
-  exportBtn.addEventListener("click", exportAll);
-  function exportAll() {
-    logMessage("INFO","EXPORT","Generating exports");
+
+  /**********************************************************
+   * EXPORT FILES
+   **********************************************************/
+  function doExport() {
+    // Paths.csv and Summary.csv, AnalysisLog.txt
+    log("Exporting files", "info", "EXPORT");
     // Paths.csv
-    let hpday = parseFloat(hoursPerDayInput.value)||8;
-    let lines=["Rank,TotalFF_Days,TotalFF_Hours,EdgesCount,BottleneckFF_Days,BottleneckEdge,TerminalCompletedID,PathIDs,PerEdgeFF_Days,Aborted,Notes"];
-    pathsResult.forEach(p=>{
-      let totalFF_Days = p.totalFF.toFixed(2);
-      let totalFF_Hours = (p.totalFF*hpday).toFixed(2);
-      let edgesCount = p.edgesCount;
-      let bottleneck = p.edgesFF.length>0 ? Math.min(...p.edgesFF.map(e=>e.ff)) : 0;
-      let bottleneckEdge = "";
-      if(p.edgesFF.length>0) {
-        let minEdge = p.edgesFF.reduce((acc,cur)=>acc.ff<cur.ff?acc:cur);
-        bottleneckEdge = minEdge.u+"->"+minEdge.v;
+    let csvLines = [];
+    csvLines.push("Rank,TotalFF_Days,TotalFF_Hours,EdgesCount,BottleneckFF_Days,BottleneckEdge,TerminalCompletedID,PathIDs,PerEdgeFF_Days,Aborted,Notes");
+    AppState.foundPaths.forEach(p=>{
+      let rank = p.rank;
+      let tffd = p.totalFF.toFixed(2);
+      let tffh = (p.totalFF * AppState.hoursPerDay).toFixed(2);
+      let ecount = p.edgesCount;
+      let bottD = p.bottleneckEdgeFF.toFixed(2);
+      let bottEdge = "N/A";
+      let term = p.terminalId;
+      let pathStr = p.path.join("->");
+      let edFF = [];
+      for(let i=0; i<p.path.length-1; i++){
+        let eObj = AppState.edges.find(e=> e.u===p.path[i] && e.v===p.path[i+1]);
+        if(eObj && eObj.FF_edge!=null) {
+          edFF.push(eObj.FF_edge.toFixed(2));
+        } else {
+          edFF.push("?");
+        }
       }
-      let terminalID = p.path[p.path.length-1];
-      let pathIDs = p.path.slice().reverse().join(">");
-      let perEdgeFFdays = p.edgesFF.map(e=>e.ff.toFixed(2)).join(";");
-      lines.push([
-        p.rank, totalFF_Days, totalFF_Hours, edgesCount, bottleneck.toFixed(2),
-        bottleneckEdge, terminalID, pathIDs, perEdgeFFdays, canceled, ""
-      ].join(","));
+      let edFFStr = edFF.join(";");
+      let aborted = p.aborted ? "true":"false";
+      let notes = "";
+      csvLines.push(`${rank},${tffd},${tffh},${ecount},${bottD},${bottEdge},${term},"${pathStr}","${edFFStr}",${aborted},${notes}`);
     });
-    const pathsCsvContent = lines.join("\n");
-    downloadBlob(pathsCsvContent, "Paths.csv", "text/csv");
+    let pathsCsv = csvLines.join("\n");
 
-    // Summary.csv (top 3 only)
-    let linesSummary = [lines[0]];
-    pathsResult.slice(0,3).forEach(p=>{
-      let row = lines[p.rank];
-      linesSummary.push(row);
-    });
-    const summaryCsvContent = linesSummary.join("\n");
-    downloadBlob(summaryCsvContent, "Summary.csv", "text/csv");
+    // top 3 summary
+    let summaryLines = [csvLines[0]];
+    summaryLines.push(...csvLines.slice(1,4)); // top 3
+    let summaryCsv = summaryLines.join("\n");
 
-    // AnalysisLog.txt
-    let logText = logs.map(l=>`${l.time} [${l.level}] [${l.step}] ${l.message}`).join("\n");
-    downloadBlob(logText, "AnalysisLog.txt", "text/plain");
+    // analysis log
+    let logTxt = AppState.logs.join("\n");
 
-    setStatus(StateEnum.ExportReady);
+    downloadBlob(pathsCsv, "Paths.csv", "text/csv");
+    downloadBlob(summaryCsv, "Summary.csv", "text/csv");
+    downloadBlob(logTxt, "AnalysisLog.txt", "text/plain");
+    AppState.checklist.outputsGenerated = true;
     updateChecklist();
-    updateButtonStates();
-    logMessage("INFO","EXPORT","Files exported");
   }
-  function downloadBlob(content, filename, mime) {
-    let blob = new Blob([content], {type:mime});
-    let url = URL.createObjectURL(blob);
-    let a = document.createElement("a");
+  function downloadBlob(content, filename, mime){
+    const blob = new Blob([content], {type:mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.style.display = "none";
     a.href = url;
     a.download = filename;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 
-  /* Theme toggle */
-  const themeToggle = document.getElementById("themeToggle");
-  themeToggle.addEventListener("click", toggleTheme);
-  function toggleTheme(){
-    document.body.classList.toggle("dark");
+  /**********************************************************
+   * UI HANDLERS
+   **********************************************************/
+  function initEventHandlers() {
+    const fileInput = document.getElementById("csvFileInput");
+    const buildBtn = document.getElementById("buildGraphBtn");
+    const analyzeBtn = document.getElementById("analyzePathsBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const unitsToggle = document.getElementById("unitsToggle");
+    const hoursPerDayInput = document.getElementById("hoursPerDayInput");
+    const fallbackModeSelect = document.getElementById("fallbackModeSelect");
+    const maxPathsInput = document.getElementById("maxPathsInput");
+    const maxDepthInput = document.getElementById("maxDepthInput");
+    const startActivityInput = document.getElementById("startActivityInput");
+
+    fileInput.addEventListener("change", handleFileSelect);
+    buildBtn.addEventListener("click", buildGraphAction);
+    analyzeBtn.addEventListener("click", analyzePathsAction);
+    exportBtn.addEventListener("click", doExport);
+    cancelBtn.addEventListener("click", cancelAction);
+    resetBtn.addEventListener("click", resetAction);
+    unitsToggle.addEventListener("change", function(){
+      AppState.units = unitsToggle.value;
+      AppState.checklist.unitToggle = true;
+      updateChecklist();
+      refreshResults();
+    });
+    hoursPerDayInput.addEventListener("change", function(){
+      let val = parseFloat(hoursPerDayInput.value);
+      if(isNaN(val) || val<1 || val>24) {
+        val = 8;
+      }
+      AppState.hoursPerDay = val;
+      refreshResults();
+    });
+    fallbackModeSelect.addEventListener("change", function(){
+      AppState.fallbackMode = fallbackModeSelect.value;
+    });
+    maxPathsInput.addEventListener("change", function(){
+      let v = parseInt(maxPathsInput.value,10);
+      if(isNaN(v) || v<1) v = 250;
+      AppState.maxPaths = v;
+    });
+    maxDepthInput.addEventListener("change", function(){
+      let v = parseInt(maxDepthInput.value,10);
+      if(isNaN(v) || v<10) v = 500;
+      AppState.maxDepth = v;
+    });
+    startActivityInput.addEventListener("input", function(){
+      if(AppState.hasGraph && startActivityInput.value.trim()) {
+        analyzeBtn.disabled = false;
+      } else {
+        analyzeBtn.disabled = true;
+      }
+    });
+
+    document.getElementById("toggleLogBtn").addEventListener("click", function(){
+      const lp = document.getElementById("logPanel");
+      lp.style.display = (lp.style.display==="none")? "block":"none";
+      AppState.checklist.logAvailable = true;
+      updateChecklist();
+    });
+
+    // help modal
+    document.getElementById("helpBtn").addEventListener("click", function(){
+      document.getElementById("helpModal").style.display = "block";
+    });
+    document.getElementById("helpCloseBtn").addEventListener("click", function(){
+      document.getElementById("helpModal").style.display = "none";
+    });
+
+    // settings panel
+    document.getElementById("settingsBtn").addEventListener("click", function(){
+      document.getElementById("settingsPanel").style.display = "block";
+    });
+    document.getElementById("settingsCloseBtn").addEventListener("click", function(){
+      document.getElementById("settingsPanel").style.display = "none";
+    });
+
+    // theme toggle
+    document.getElementById("themeToggleBtn").addEventListener("click", function(){
+      document.body.classList.toggle("dark-theme");
+    });
+
+    // self-test
+    document.getElementById("selfTestBtn").addEventListener("click", runSelfTest);
+
+    // keyboard shortcuts
+    window.addEventListener("keydown", function(e){
+      if(e.key === "?") {
+        e.preventDefault();
+        document.getElementById("helpModal").style.display = "block";
+      } else if(e.key === "g") {
+        e.preventDefault();
+        if(!buildBtn.disabled) buildGraphAction();
+      } else if(e.key === "a") {
+        e.preventDefault();
+        if(!analyzeBtn.disabled) analyzePathsAction();
+      } else if(e.key === "e") {
+        e.preventDefault();
+        if(!exportBtn.disabled) doExport();
+      } else if(e.key === "l") {
+        e.preventDefault();
+        const lp = document.getElementById("logPanel");
+        lp.style.display = (lp.style.display==="none")? "block":"none";
+        AppState.checklist.logAvailable = true;
+        updateChecklist();
+      } else if(e.key === "t") {
+        e.preventDefault();
+        document.body.classList.toggle("dark-theme");
+      }
+    });
   }
 
-  /* Self-Test */
-  selfTestBtn.addEventListener("click", function(){
-    logMessage("INFO","SELF_TEST","Running self-test (minimal)...");
-    let pass=true;
-    let edgesOk = 0;
-    adjacencySuccessors.forEach(arr=>{
-      edgesOk += arr.length;
-    });
-    if(edgesOk!==edgesCount) {
-      pass=false;
-      logMessage("ERROR","SELF_TEST","Edges mismatch: counted="+edgesOk+", expected="+edgesCount);
+  function handleFileSelect(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    if(file.size>10*1024*1024) {
+      log("File is over 10MB, might exceed maximum CSV size", "warn", "LOAD_CSV");
     }
-    if(pass) logMessage("INFO","SELF_TEST","PASS");
-    else logMessage("WARN","SELF_TEST","FAIL");
+    const reader = new FileReader();
+    reader.onload = function(evt){
+      AppState.rawCsv = evt.target.result;
+      AppState.csvRows = [];
+      parseCsv(AppState.rawCsv);
+      document.getElementById("csvRowCountInfo").textContent = "Rows loaded: "+AppState.csvRows.length;
+      document.getElementById("buildGraphBtn").disabled = (AppState.csvRows.length===0);
+      document.getElementById("statusCsvBadge").style.display = (AppState.csvRows.length>0)?"inline-block":"none";
+    };
+    reader.readAsText(file);
+  }
+  function buildGraphAction(){
+    buildGraph();
+    if(!AppState.cycleDetected) {
+      document.getElementById("statusGraphBadge").style.display = "inline-block";
+      // enable analyze if we have a start ID
+      const startVal = document.getElementById("startActivityInput").value.trim();
+      document.getElementById("analyzePathsBtn").disabled = !startVal;
+    }
+  }
+  function analyzePathsAction(){
+    if(AppState.cycleDetected) {
+      alert("Cannot analyze due to cycle in graph.");
+      return;
+    }
+    const startVal = document.getElementById("startActivityInput").value.trim();
+    if(!startVal) {
+      alert("No Start Activity ID specified.");
+      return;
+    }
+    // do computations
+    computeCPM();
+    log("Enumerating paths...", "info", "ENUMERATE_PATHS");
+    enumeratePaths(startVal);
+    rankPaths();
+    refreshResults();
+    document.getElementById("statusAnalyzedBadge").style.display = (AppState.foundPaths.length>0)?"inline-block":"none";
+    document.getElementById("exportBtn").disabled = (AppState.foundPaths.length===0);
+    let PF = 0;
+    for(const [id,a] of AppState.activities) {
+      if(a.EF && a.EF>PF) PF=a.EF;
+    }
+    document.getElementById("projectFinishCard").textContent = "Project Finish: " + PF.toFixed(2)+" d";
+  }
+  function cancelAction(){
+    AppState.aborted = true;
+    log("Operation canceled by user", "warn", "GEN");
+  }
+  function resetAction(){
+    if(!confirm("Are you sure you want to reset the application?")) {
+      return;
+    }
+    location.reload();
+  }
+
+  /**********************************************************
+   * SELF TEST
+   **********************************************************/
+  function runSelfTest(){
+    log("Running self-test...", "info", "SELF_TEST");
+    let pass = true;
+    // Example checks
+    // 1) if graph built => edges count in adjacency
+    let totalEdgesCount = 0;
+    Object.values(AppState.adjacencyList).forEach(lst=>{
+      totalEdgesCount += lst.length;
+    });
+    if(totalEdgesCount !== AppState.edges.length) {
+      pass=false;
+      log("FAIL: edges mismatch between adjacencyList and edges array", "error", "SELF_TEST");
+    }
+    if(pass) {
+      log("All checks passed", "info", "SELF_TEST");
+    }
+  }
+
+  /**********************************************************
+   * INITIALIZATION
+   **********************************************************/
+  document.addEventListener("DOMContentLoaded", function(){
+    initEventHandlers();
+    log("App initialized", "info", "GEN");
   });
-
-  /* Reset */
-  resetBtn.addEventListener("click", resetAll);
-
-  /* Initialization */
-  setStatus(StateEnum.Idle);
-  updateButtonStates();
-  updateChecklist();
 })();
 </script>
 </body>
